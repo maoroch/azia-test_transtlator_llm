@@ -1,6 +1,7 @@
 from src.services.pdf_parser_service import PDFParserService
 import pdfplumber
-
+from src.services.translation_service import TranslationService
+from src.services.pdf_generator_service import PDFGeneratorService
 
 with pdfplumber.open("sample.pdf") as pdf:
     page = pdf.pages[0]
@@ -16,12 +17,24 @@ with pdfplumber.open("sample.pdf") as pdf:
         print("first char keys:", page.chars[0].keys())
         print("first char sample:", page.chars[0])
         
+
+
 if __name__ == "__main__":
+    # Парсим PDF
     parser = PDFParserService()
     blocks = parser.extract_blocks("sample.pdf")
-    for b in blocks:
-        if b.font_size:
-            font_info = f"{b.font_name} ({b.font_size:.1f}pt)"
-        else:
-            font_info = f"{b.font_name or 'unknown'} (size N/A)"
-        print(f"Стр. {b.page_number}: [{b.type}] {b.text[:60]}... | Font: {font_info}")
+    
+    # Переводим
+    translator = TranslationService()
+    glossary = {"PID": "ПИД-регулятор", "PLC": "программируемый логический контроллер", "HMI": "человеко-машинный интерфейс"}
+    translated_texts = translator.translate_blocks(blocks, src_lang="en", tgt_lang="ru", glossary=glossary)
+    
+    # Выводим в консоль
+    for original, translated in zip(blocks, translated_texts):
+        print(f"Оригинал: {original.text}")
+        print(f"Перевод: {translated}\n")
+    
+    # Генерируем PDF
+    generator = PDFGeneratorService()
+    generator.generate_pdf("output_translated.pdf", blocks, translated_texts)
+    print("PDF создан: output_translated.pdf")
