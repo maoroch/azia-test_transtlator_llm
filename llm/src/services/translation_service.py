@@ -3,6 +3,7 @@ from typing import List, Dict, Optional
 from loguru import logger
 from groq import Groq
 from dotenv import load_dotenv
+from .cache_service import RedisCacheService
 
 load_dotenv()
 
@@ -13,35 +14,30 @@ class TranslationService:
             raise ValueError("GROQ_API_KEY not found in environment")
         self.client = Groq(api_key=self.api_key)
         self.model = model
-        self.cache = {}  # простой in-memory кэш
+        self.cache = RedisCacheService()  # используем Redis
 
     def translate_blocks(self, blocks: List, src_lang: str, tgt_lang: str, glossary: Optional[Dict[str, str]] = None) -> List[str]:
-        """
-        Переводит блоки текста последовательно с учётом контекста (overlap).
-        Возвращает список переведённых строк в том же порядке.
-        """
         translated = []
         previous_block_text = ""
 
         for i, block in enumerate(blocks):
-            # Формируем промпт
-            prompt = self._build_prompt(block.text, previous_block_text, src_lang, tgt_lang, glossary)
-            # Проверяем кэш
-            cache_key = f"{block.text}_{src_lang}_{tgt_lang}_{str(glossary)}"
-            if cache_key in self.cache:
-                translated_text = self.cache[cache_key]
+            # Проверяем кэш Redis
+            cached = self.cache.get(block.text, src_lang, tgt_lang, glossary)
+            if cached:
+                translated_text = cached
                 logger.debug(f"Cache hit for block {i}")
             else:
-                # Вызов Groq
+                prompt = self._build_prompt(block.text, previous_block_text, src_lang, tgt_lang, glossary)
                 translated_text = self._call_groq(prompt)
-                self.cache[cache_key] = translated_text
+                # Сохраняем в Redis
+                self.cache.set(block.text, src_lang, tgt_lang, glossary, translated_text)
                 logger.info(f"Translated block {i+1}/{len(blocks)}")
 
             translated.append(translated_text)
-            # Обновляем контекст для следующего блока (overlap)
             previous_block_text = block.text
 
         return translated
+
 
     def _build_prompt(self, current_text: str, prev_text: str, src_lang: str, tgt_lang: str, glossary: Optional[Dict[str, str]]) -> str:
         """Формирует промпт для LLM с контекстом и глоссарием."""

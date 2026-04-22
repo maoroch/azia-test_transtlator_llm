@@ -1,17 +1,32 @@
 import pdfplumber
 from typing import List
 from loguru import logger
-from ..models.document import Block, BoundingBox
 from collections import Counter
+from ..models.document import Block, BoundingBox, Table
 
 class PDFParserService:
-    """Извлечение текста и координат из PDF с помощью pdfplumber."""
-
     @staticmethod
     def extract_blocks(pdf_path: str) -> List[Block]:
-        blocks = []
+        all_blocks = []
         with pdfplumber.open(pdf_path) as pdf:
             for page_num, page in enumerate(pdf.pages, start=1):
+                # Извлечение таблиц
+                tables = page.extract_tables()
+                if tables:
+                    for table_data in tables:
+                        # Приблизительный bbox: используем всю страницу или можно уточнить
+                        # Для простоты используем всю страницу
+                        bbox = BoundingBox(x0=0, y0=0, x1=page.width, y1=page.height)
+                        table_block = Block(
+                            type="table",
+                            text="",
+                            page_number=page_num,
+                            bbox=bbox,
+                            table_data=Table(data=table_data, bbox=bbox, page_number=page_num)
+                        )
+                        all_blocks.append(table_block)
+
+                # Извлечение текстовых блоков
                 words = page.extract_words()
                 if not words:
                     logger.warning(f"Страница {page_num} не содержит слов")
@@ -19,13 +34,14 @@ class PDFParserService:
 
                 raw_blocks = PDFParserService._words_to_blocks(words, page_num)
                 classified_blocks = PDFParserService._classify_blocks(raw_blocks, page, page_num)
-                blocks.extend(classified_blocks)
+                all_blocks.extend(classified_blocks)
 
-        logger.info(f"Извлечено {len(blocks)} блоков из {pdf_path}")
-        return blocks
+        logger.info(f"Извлечено {len(all_blocks)} блоков из {pdf_path}")
+        return all_blocks
 
     @staticmethod
     def _words_to_blocks(words, page_num):
+        """Группирует слова в строки (блоки) без классификации."""
         blocks = []
         words_sorted = sorted(words, key=lambda w: (w['top'], w['x0']))
         current = None
