@@ -4,6 +4,8 @@ from loguru import logger
 from groq import Groq
 from dotenv import load_dotenv
 from .cache_service import RedisCacheService
+from collections import deque
+import time
 
 load_dotenv()
 
@@ -15,6 +17,23 @@ class TranslationService:
         self.client = Groq(api_key=self.api_key)
         self.model = model
         self.cache = RedisCacheService()  # используем Redis
+
+        # Rate limiting settings
+        self.rate_limit_per_minute = int(os.getenv("GROQ_RATE_LIMIT_PER_MINUTE", 30))
+        self.rate_limit_sleep = float(os.getenv("GROQ_RATE_LIMIT_SLEEP", 2.0))
+        self.request_timestamps = deque(maxlen=self.rate_limit_per_minute)  # храним времена последних запросов
+
+    def _wait_if_needed(self):
+        """Проверяет, не превышен ли лимит запросов в минуту, и ждёт при необходимости."""
+        if len(self.request_timestamps) < self.rate_limit_per_minute:
+            return
+        # Смотрим на самый старый timestamp
+        oldest = self.request_timestamps[0]
+        now = time.time()
+        if now - oldest < 60:
+            sleep_time = 60 - (now - oldest)
+            logger.warning(f"Rate limit reached. Sleeping for {sleep_time:.2f}s")
+            time.sleep(sleep_time)
 
     def translate_blocks(self, blocks: List, src_lang: str, tgt_lang: str, glossary: Optional[Dict[str, str]] = None) -> List[str]:
         translated = []
@@ -56,7 +75,8 @@ Text to translate:
         return prompt
 
     def _call_groq(self, prompt: str) -> str:
-        """Отправляет запрос к Groq API и возвращает ответ."""
+        """Отправляет запрос к Groq API с соблюдением rate limiting."""
+        self._wait_if_needed()
         try:
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -67,7 +87,13 @@ Text to translate:
                 temperature=0.2,
                 max_tokens=2048
             )
-            return response.choices[0].message.content.strip()
+            result = response.choices[0].message.content.strip()
+            # Запоминаем время запроса
+            self.request_timestamps.append(time.time())
+            # Пауза после запроса для соблюдения среднего лимита
+            if self.rate_limit_sleep > 0:
+                time.sleep(self.rate_limit_sleep)
+            return result
         except Exception as e:
             logger.error(f"Groq API error: {e}")
             return f"[TRANSLATION ERROR: {e}]"
