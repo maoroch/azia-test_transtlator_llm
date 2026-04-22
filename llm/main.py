@@ -18,6 +18,10 @@ with pdfplumber.open("sample.pdf") as pdf:
         
 if __name__ == "__main__":
     parser = PDFParserService()
-    blocks = parser.extract_blocks("sample.pdf")  # укажите путь к вашему тестовому PDF
-    for b in blocks[:5]:  # выведем первые 5 блоков
-        print(f"Стр. {b.page_number}: {b.text[:80]}... | Координаты: {b.bbox}")
+    blocks = parser.extract_blocks("sample.pdf")
+    for b in blocks:
+        if b.font_size:
+            font_info = f"{b.font_name} ({b.font_size:.1f}pt)"
+        else:
+            font_info = f"{b.font_name or 'unknown'} (size N/A)"
+        print(f"Стр. {b.page_number}: [{b.type}] {b.text[:60]}... | Font: {font_info}")

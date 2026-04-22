@@ -12,7 +12,8 @@ class Block(BaseModel):
     text: str
     page_number: int
     bbox: BoundingBox
-    # Для таблиц можно хранить сырые данные отдельно
+    font_size: Optional[float] = None
+    font_name: Optional[str] = None
     raw_data: Optional[dict] = None
 
 class Document(BaseModel):
