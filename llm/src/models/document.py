@@ -8,9 +8,10 @@ class BoundingBox(BaseModel):
     y1: float
 
 class Table(BaseModel):
-    data: List[List[str]]
+    data: List[List[str]] = []
     bbox: BoundingBox
     page_number: int
+    cells: List[List[dict]] = [] 
 
 class Block(BaseModel):
     type: Literal["paragraph", "heading", "list", "table", "other"]

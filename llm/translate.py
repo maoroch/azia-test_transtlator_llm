@@ -30,6 +30,7 @@ def main():
     parser.add_argument("--glossary", "-g", help="JSON file with glossary (key: original term, value: translation)")
     parser.add_argument("--model", default="llama-3.3-70b-versatile", help="Groq model name")
     parser.add_argument("--no-cache", action="store_true", help="Disable Redis cache (if set)")
+    parser.add_argument("--export-json", help="Export blocks and translations to JSON file for manual editing")
     args = parser.parse_args()
 
     # Validate input file
@@ -67,17 +68,14 @@ def main():
         else:
             non_table_indices.append(i)
 
-    # Translate tables with progress bar
+    # Translate tables with progress bar (whole table at once)
     if table_indices:
         logger.info(f"Translating {len(table_indices)} tables...")
         for idx in tqdm(table_indices, desc="Tables", unit="table"):
             block = blocks[idx]
-            translated_table = table_processor.translate_table(
-                block.table_data, args.src_lang, args.tgt_lang, glossary
-            )
+            translated_table = table_processor.translate_table(block.table_data, args.src_lang, args.tgt_lang, glossary)
             blocks[idx].table_data = translated_table
-            # translated_texts[idx] remains empty (tables have no text translation)
-
+            
     # Translate text blocks with progress bar
     if non_table_indices:
         non_table_blocks = [blocks[i] for i in non_table_indices]
@@ -99,10 +97,39 @@ def main():
         for idx, trans in zip(non_table_indices, translations):
             translated_texts[idx] = trans
 
+    # После получения translated_texts, перед генерацией PDF
+    if args.export_json:
+        export_data = {
+            "input_file": args.input,
+            "src_lang": args.src_lang,
+            "tgt_lang": args.tgt_lang,
+            "glossary": glossary,
+            "blocks": []
+        }
+        for block, translation in zip(blocks, translated_texts):
+            export_data["blocks"].append({
+                "type": block.type,
+                "text": translation,  # переведённый текст
+                "original_text": block.text,  # оригинал для справки
+                "page_number": block.page_number,
+                "bbox": {
+                    "x0": block.bbox.x0,
+                    "y0": block.bbox.y0,
+                    "x1": block.bbox.x1,
+                    "y1": block.bbox.y1
+                },
+                "font_size": block.font_size,
+                "font_name": block.font_name,
+                "table_data": block.table_data.dict() if block.table_data else None
+            })
+        with open(args.export_json, 'w', encoding='utf-8') as f:
+            json.dump(export_data, f, indent=2, ensure_ascii=False)
+        logger.info(f"Exported blocks to {args.export_json}")
+
     # Step 3: Generate PDF
     logger.info(f"Generating PDF: {args.output}")
     generator = PDFGeneratorService()
-    generator.generate_pdf(args.output, blocks, translated_texts)
+    generator.generate_pdf(args.input, args.output, blocks, translated_texts)
     logger.success(f"Done! Output saved to {args.output}")
 
 if __name__ == "__main__":

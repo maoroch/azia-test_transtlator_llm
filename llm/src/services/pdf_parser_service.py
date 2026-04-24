@@ -1,5 +1,5 @@
 import pdfplumber
-from typing import List
+from typing import List, Tuple, Any
 from loguru import logger
 from collections import Counter
 from ..models.document import Block, BoundingBox, Table
@@ -10,38 +10,62 @@ class PDFParserService:
         all_blocks = []
         with pdfplumber.open(pdf_path) as pdf:
             for page_num, page in enumerate(pdf.pages, start=1):
-                # Извлечение таблиц
-                tables = page.extract_tables()
-                if tables:
-                    for table_data in tables:
-                        # Приблизительный bbox: используем всю страницу или можно уточнить
-                        # Для простоты используем всю страницу
-                        bbox = BoundingBox(x0=0, y0=0, x1=page.width, y1=page.height)
-                        table_block = Block(
-                            type="table",
-                            text="",
-                            page_number=page_num,
-                            bbox=bbox,
-                            table_data=Table(data=table_data, bbox=bbox, page_number=page_num)
-                        )
-                        all_blocks.append(table_block)
+                # Извлечение таблиц с координатами ячеек
+                table_blocks = PDFParserService._extract_tables_with_cells(page, page_num)
+                all_blocks.extend(table_blocks)
 
-                # Извлечение текстовых блоков
+                # Извлечение текстовых блоков (параграфы, заголовки и т.д.)
                 words = page.extract_words()
-                if not words:
+                if words:
+                    raw_blocks = PDFParserService._words_to_blocks(words, page_num)
+                    classified_blocks = PDFParserService._classify_blocks(raw_blocks, page, page_num)
+                    all_blocks.extend(classified_blocks)
+                else:
                     logger.warning(f"Страница {page_num} не содержит слов")
-                    continue
-
-                raw_blocks = PDFParserService._words_to_blocks(words, page_num)
-                classified_blocks = PDFParserService._classify_blocks(raw_blocks, page, page_num)
-                all_blocks.extend(classified_blocks)
-
         logger.info(f"Извлечено {len(all_blocks)} блоков из {pdf_path}")
         return all_blocks
 
     @staticmethod
+    def _extract_tables_with_cells(page, page_num: int) -> List[Block]:
+        table_blocks = []
+        tables = page.find_tables()
+        for table in tables:
+            cells = []
+            # Проверяем наличие ячеек
+            if not hasattr(table, 'cells') or not table.cells:
+                continue
+            for row in table.cells:
+                row_cells = []
+                for cell in row:
+                    # Убедимся, что cell — это кортеж из 4 чисел
+                    if isinstance(cell, (tuple, list)) and len(cell) >= 4:
+                        # Распаковываем координаты
+                        x0, y0, x1, y1 = cell[0], cell[1], cell[2], cell[3]
+                        cell_text = page.extract_text(clip=(x0, y0, x1, y1)) or ""
+                        row_cells.append({
+                            "text": cell_text.strip(),
+                            "bbox": BoundingBox(x0=x0, y0=y0, x1=x1, y1=y1)
+                        })
+                    else:
+                        # Если ячейка не в ожидаемом формате, пропускаем
+                        continue
+                if row_cells:
+                    cells.append(row_cells)
+            if not cells:
+                continue
+            bbox = BoundingBox(x0=table.bbox[0], y0=table.bbox[1], x1=table.bbox[2], y1=table.bbox[3])
+            table_block = Block(
+                type="table",
+                text="",
+                page_number=page_num,
+                bbox=bbox,
+                table_data=Table(data=[], bbox=bbox, page_number=page_num, cells=cells)
+            )
+            table_blocks.append(table_block)
+        return table_blocks
+    
+    @staticmethod
     def _words_to_blocks(words, page_num):
-        """Группирует слова в строки (блоки) без классификации."""
         blocks = []
         words_sorted = sorted(words, key=lambda w: (w['top'], w['x0']))
         current = None

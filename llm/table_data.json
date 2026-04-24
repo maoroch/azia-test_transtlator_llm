@@ -1,0 +1,72 @@
+{
+  "input_file": "table_sample.pdf",
+  "src_lang": "en",
+  "tgt_lang": "ru",
+  "glossary": {
+    "PID": "ПИД-регулятор",
+    "PLC": "программируемый логический контроллер",
+    "HMI": "человеко-машинный интерфейс"
+  },
+  "blocks": [
+    {
+      "type": "paragraph",
+      "text": "Термин Определение",
+      "original_text": "Term Definition",
+      "page_number": 1,
+      "bbox": {
+        "x0": 197.2,
+        "y0": 83.07000000000005,
+        "x1": 344.505,
+        "y1": 93.07000000000005
+      },
+      "font_size": 10.0,
+      "font_name": "Helvetica",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "ПИД-регулятор пропорционально-интегрально-дифференциальный контроллер",
+      "original_text": "PID Proportional-Integral-Derivative controller",
+      "page_number": 1,
+      "bbox": {
+        "x0": 200.53,
+        "y0": 101.07000000000005,
+        "x1": 414.8,
+        "y1": 111.07000000000005
+      },
+      "font_size": 10.0,
+      "font_name": "Helvetica",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Программируемый логический контроллер",
+      "original_text": "PLC Programmable Logic Controller",
+      "page_number": 1,
+      "bbox": {
+        "x0": 199.14,
+        "y0": 119.07000000000005,
+        "x1": 392.84999999999997,
+        "y1": 129.07000000000005
+      },
+      "font_size": 10.0,
+      "font_name": "Helvetica",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "HMI Человеко-машинный интерфейс",
+      "original_text": "HMI Human-Machine Interface",
+      "page_number": 1,
+      "bbox": {
+        "x0": 199.7,
+        "y0": 137.07000000000005,
+        "x1": 381.185,
+        "y1": 147.07000000000005
+      },
+      "font_size": 10.0,
+      "font_name": "Helvetica",
+      "table_data": null
+    }
+  ]
+}
