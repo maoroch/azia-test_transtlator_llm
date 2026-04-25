@@ -35,12 +35,12 @@
 
 ```mermaid
 flowchart TD
-  CLI[CLI translate.py / generate_from_json.py]
-  Parser[PDFParserService (pdfplumber)]
-  Translator[TranslationService (Groq / Ollama)]
-  Cache[RedisCache]
-  Tables[TableProcessorService]
-  Gen[PDFGeneratorService (PyMuPDF)]
+  CLI("CLI translate.py / generate_from_json.py")
+  Parser("PDFParserService (pdfplumber)")
+  Translator("TranslationService (Groq / Ollama)")
+  Cache("RedisCache")
+  Tables("TableProcessorService")
+  Gen("PDFGeneratorService (PyMuPDF)")
 
   CLI --> Parser
   Parser --> Translator
