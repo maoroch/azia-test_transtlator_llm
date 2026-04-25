@@ -1,0 +1,428 @@
+{
+  "input_file": "testo-103-declaration-of-conformity-eu-1935-2004-en.pdf",
+  "src_lang": "en",
+  "tgt_lang": "ru",
+  "glossary": null,
+  "blocks": [
+    {
+      "type": "paragraph",
+      "text": "Тесто S E & Co K GaA, Celsiusstraße 2, 79822 Титизе-Нойштадт, Германия 26 ноября 2020 ---",
+      "original_text": "Testo S E & Co K GaA, Celsiusstraße 2, 79822 Titisee-Neustadt, Germany 26. November 2020",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 96.86839999999995,
+        "x1": 520.8102799999999,
+        "y1": 104.90839999999992
+      },
+      "font_size": 8.079599999999964,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "heading",
+      "text": "Декларация соответствия в соответствии с Рег. (Е С) 1935/2004 ---",
+      "original_text": "Declaration of conformity according to Reg. (E U) 1935/2004",
+      "page_number": 1,
+      "bbox": {
+        "x0": 128.54,
+        "y0": 129.7399999999999,
+        "x1": 466.762,
+        "y1": 141.7399999999999
+      },
+      "font_size": 12.0,
+      "font_name": "Arial-BoldMT",
+      "table_data": null
+    },
+    {
+      "type": "heading",
+      "text": "для изделий, вступающих в контакт с пищевыми продуктами. ---",
+      "original_text": "for articles coming into contact with foods.",
+      "page_number": 1,
+      "bbox": {
+        "x0": 176.54,
+        "y0": 157.33999999999992,
+        "x1": 421.808,
+        "y1": 169.33999999999992
+      },
+      "font_size": 12.0,
+      "font_name": "Arial-BoldMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Это заявление о том, что следующий продукт: testo 103 (термометр для измерения проникновения) ---",
+      "original_text": "This is to declare that the following product: testo 103 (Penetration thermometer)",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 182.83159999999998,
+        "x1": 262.803,
+        "y1": 220.97839999999997
+      },
+      "font_size": 9.959999999999923,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "соответствовать регламентам Директивы (ЕС) 1935/2004 Европейского парламента от 27-го ---",
+      "original_text": "conform to the regulation of the Directive (E U) 1935/2004 of the European Parliament from the 27th of",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 261.34159999999997,
+        "x1": 524.0476399999999,
+        "y1": 271.3015999999999
+      },
+      "font_size": 9.959999999999923,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Октябрь 2004 года и требования L FG B (немецкого Кодекса пищевых продуктов и кормов) §30, §31 в текущей версии. ---",
+      "original_text": "October 2004 and the requirements of the L FG B (German Food and Feed Code) §30, §31 in the current version.",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 274.5416,
+        "x1": 524.50408,
+        "y1": 297.7016
+      },
+      "font_size": 9.959999999999923,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Хорошая производственная практика для материалов и предметов, которые мы используем и которые предназначены для контакта ---",
+      "original_text": "Good manufacturing practice for the materials and items we use that are intended to come into contact",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 310.1816,
+        "x1": 524.34568,
+        "y1": 320.1415999999999
+      },
+      "font_size": 9.959999999999923,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "с продуктами питания соответствует Регламенту (Е С) № 2023/2006 (G MP) от 22 декабря 2006 г. Описание: ---",
+      "original_text": "with food complies with Regulation (E U) No. 2023/2006 (G MP) of December 22, 2006. Description:",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 323.38159999999993,
+        "x1": 452.53351999999995,
+        "y1": 373.0616
+      },
+      "font_size": 9.960000000000036,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Материалы, контактирующие с пищевыми продуктами, - это все изделия, которые предназначены для прямого или косвенного контакта с --- ---",
+      "original_text": "Food contact materials are all articles which are intended to come directly or indirectly into contact with",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 374.62159999999994,
+        "x1": 523.9342800000003,
+        "y1": 384.5816
+      },
+      "font_size": 9.960000000000036,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "продовольственные товары. В измерительных приборах это только те части, цель которых, указанная производителем, заключается в постоянном контакте с пищевыми продуктами. ---",
+      "original_text": "foodstuffs. In measuring instruments, these are only the parts whose intended purpose, specified by the manufacturer, is to have permanent contact with food.",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 386.1415999999999,
+        "x1": 523.81476,
+        "y1": 407.6216
+      },
+      "font_size": 9.960000000000036,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Требования Регламента Рег. Е С 1935/2004 таким образом относятся к измерительному наконечнику вставного ---",
+      "original_text": "The requirements of the Regulation Reg. E U 1935/2004 thus refer to the measurement tip of plug-in",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 419.1415999999999,
+        "x1": 524.3990800000001,
+        "y1": 429.10159999999996
+      },
+      "font_size": 9.960000000000036,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "и исправляемые зонды во всех портативных приборах Testo для измерения температуры (см. список выше), которые являются ---",
+      "original_text": "and fixable probes in all portable Testo temperature measuring instruments (see list above) which are",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 430.54159999999996,
+        "x1": 523.8048000000002,
+        "y1": 440.5016
+      },
+      "font_size": 9.960000000000036,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "погружены и/или проникли в пищу на расстояние до 1 см от ручки. Для инструментов с ---",
+      "original_text": "immersed and/or penetrated into the food up to within 1 cm of the handgrip. For instruments with a",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 442.0815999999999,
+        "x1": 523.8645600000001,
+        "y1": 452.04159999999996
+      },
+      "font_size": 9.960000000000036,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "фиксированный зонд, это вал зонда до расстояния в 1 см перед переходом к пластиковому корпусу. ---",
+      "original_text": "fixed probe, this is the probe shaft up to within 1cm before the crossover to the plastic case.",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 453.60159999999996,
+        "x1": 524.1541599999999,
+        "y1": 463.5616
+      },
+      "font_size": 9.960000000000036,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Точное описание глубины проникновения и предполагаемых целей (в пищевой промышленности) можно ---",
+      "original_text": "The exact description of the penetration depth and the intended purposes (in the food sector) can be",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 465.12159999999994,
+        "x1": 523.7350799999999,
+        "y1": 475.0816
+      },
+      "font_size": 9.960000000000036,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "найдены в руководствах по эксплуатации соответствующих продуктов. И Н Ф О Р М А Ц И Я Д Л Я... Датчики температуры: ---",
+      "original_text": "found in the instruction manuals of the respective products. I NF OR MA TI ON F OR... Temperature probes:",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 476.6415999999999,
+        "x1": 331.6863599999999,
+        "y1": 554.7616
+      },
+      "font_size": 9.960000000000036,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Все температурные зонды от Testo состоят из нержавеющей стали пищевого качества (стальной ключ 1.4571, ранее ---",
+      "original_text": "All temperature probes from Testo consist of food-quality stainless steel (steel key 1.4571, previously",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 556.3216,
+        "x1": 524.0080399999999,
+        "y1": 566.2816
+      },
+      "font_size": 9.960000000000036,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "V4A) или аналогичный материал. Ручки пробников, кабели, разъемы, корпус, защитные крышки и ---",
+      "original_text": "V4A) or comparable material. Probe handles, cables, connectors, housing, protective covers and",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 569.5216,
+        "x1": 523.9741200000001,
+        "y1": 579.4816000000001
+      },
+      "font_size": 9.960000000000036,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Аналогичные состоят из материалов, которые разрешено использовать в течение короткого периода времени в контакте с пищей, но не предназначены для длительного контакта с пищей. Другие измерительные приборы Testo: ---",
+      "original_text": "similar consist of materials which are permitted to come into contact with food for a short period, but are not designed for long-term contact with food. Other Testo measuring instruments:",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 582.8416,
+        "x1": 524.1555999999999,
+        "y1": 631.1116
+      },
+      "font_size": 9.95999999999998,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Регистраторы данных, инфракрасные приборы, а также аксессуары, такие как защитные чехлы, зарядные устройства и т. д. ---",
+      "original_text": "Data loggers, infrared instruments as well as accessories such as protective covers, chargers, etc. are",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 632.7916,
+        "x1": 523.7052000000002,
+        "y1": 642.7515999999999
+      },
+      "font_size": 9.960000000000008,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "не статьи для ежедневного использования, попадающие под смысл регулирования, поскольку они не предназначены для прямого контакта с пищевыми продуктами. Отслеживаемость: ---",
+      "original_text": "not articles for daily use falling within the sense of the regulation, as these are not designed to come into direct contact with foodstuffs. Traceability:",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 645.9916,
+        "x1": 523.9246399999997,
+        "y1": 694.3516
+      },
+      "font_size": 9.960000000000008,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Наши продукты, которые потенциально могут вступать в контакт с пищей, поставляются с частью производителя ---",
+      "original_text": "Our products which can potentially come into contact with food are provided with a manufacturer part",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 695.9115999999999,
+        "x1": 524.3708799999999,
+        "y1": 705.8716
+      },
+      "font_size": 9.960000000000008,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Номер и дата производства. Это позволяет нам отслеживать дату производства, а также доставку ---",
+      "original_text": "number and date of manufacture. This allows us to trace the production date as well as the delivery",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 707.4315999999999,
+        "x1": 524.0894,
+        "y1": 717.3915999999999
+      },
+      "font_size": 9.960000000000008,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "партии, что обеспечивается нашей системой управления качеством ИСО 9001. ---",
+      "original_text": "batches which is ensured by our I SO 9001 quality management system.",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 718.9516,
+        "x1": 388.4484,
+        "y1": 728.9115999999999
+      },
+      "font_size": 9.960000000000008,
+      "font_name": "ArialMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Этот документ был создан электронно и является действительным без подписи. ---",
+      "original_text": "This document was created electronically and is valid without a signature.",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 742.55232,
+        "x1": 428.638,
+        "y1": 753.59232
+      },
+      "font_size": 11.039999999999992,
+      "font_name": "Arial-ItalicMT",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Testo S E & Co. K GaA, H Q Титизе-Нойштадт, Коммерческий реестр Фрайбург в Брисгау H RB 715057; Председатель Наблюдательного совета: Юрген Хинн. ---",
+      "original_text": "Testo S E & Co. K GaA, H Q Titisee-Neustadt, Commercial Register Freiburg i. Br. H RB 715057; Supervisory Board Chairperson: Jürgen Hinn.",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 782.3159999999999,
+        "x1": 455.92112,
+        "y1": 789.276
+      },
+      "font_size": 6.960000000000001,
+      "font_name": "BCDEEE+Calibri-Italic",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Генеральный партнер: Testo Management S E, штаб-квартира Титизе-Нойштадт, Коммерческий реестр Фрайбург в Брисгау HRB 714984; ---",
+      "original_text": "General Partner: Testo Management S E, H Q Titisee-Neustadt, Commercial Register Freiburg i. Br. H RB 714984;",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 790.836,
+        "x1": 384.9910399999999,
+        "y1": 797.7959999999999
+      },
+      "font_size": 6.960000000000001,
+      "font_name": "BCDEEE+Calibri-Italic",
+      "table_data": null
+    },
+    {
+      "type": "paragraph",
+      "text": "Директора: проф. Буркарт Кноспе (CEO), Экхард Клот, Петер Крёйтер, Каролина Кальб; Председатель Наблюдательного совета: Юрген Хинн. ---",
+      "original_text": "Directors: Prof. Burkart Knospe (C EO), Eckhard Kloth, Peter Kräuter, Karoline Kalb; Supervisory Board Chairperson: Jürgen Hinn.",
+      "page_number": 1,
+      "bbox": {
+        "x0": 70.824,
+        "y0": 799.5,
+        "x1": 428.9861599999999,
+        "y1": 806.4599999999999
+      },
+      "font_size": 6.983437500000001,
+      "font_name": "BCDEEE+Calibri-Italic",
+      "table_data": null
+    }
+  ]
+}
