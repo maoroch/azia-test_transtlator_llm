@@ -1,99 +1,129 @@
 import os
+import re
+import asyncio
+from collections import defaultdict
 from typing import List, Dict, Optional
 from loguru import logger
-from groq import Groq
+from groq import AsyncGroq
 from dotenv import load_dotenv
 from .cache_service import RedisCacheService
-from collections import deque
-import time
 
 load_dotenv()
+
+class RateLimiter:
+    def __init__(self, rate_per_minute: int):
+        self.rate = rate_per_minute
+        self.interval = 60.0 / rate_per_minute
+        self.last = asyncio.get_event_loop().time()
+        self.lock = asyncio.Lock()
+
+    async def acquire(self):
+        async with self.lock:
+            now = asyncio.get_event_loop().time()
+            wait = self.last + self.interval - now
+            if wait > 0:
+                await asyncio.sleep(wait)
+                self.last = asyncio.get_event_loop().time()
+            else:
+                self.last = now
 
 class TranslationService:
     def __init__(self, api_key: Optional[str] = None, model: str = "llama-3.3-70b-versatile"):
         self.api_key = api_key or os.getenv("GROQ_API_KEY")
         if not self.api_key:
-            raise ValueError("GROQ_API_KEY not found in environment")
-        self.client = Groq(api_key=self.api_key)
+            raise ValueError("GROQ_API_KEY not found")
+        self.client = AsyncGroq(api_key=self.api_key)
         self.model = model
-        self.cache = RedisCacheService()  # используем Redis
+        self.cache = RedisCacheService()
+        self.rate_limiter = RateLimiter(int(os.getenv("GROQ_RATE_LIMIT_PER_MINUTE", 30)))
+        self.semaphore = asyncio.Semaphore(int(os.getenv("GROQ_MAX_CONCURRENT", 5)))
 
-        # Rate limiting settings
-        self.rate_limit_per_minute = int(os.getenv("GROQ_RATE_LIMIT_PER_MINUTE", 30))
-        self.rate_limit_sleep = float(os.getenv("GROQ_RATE_LIMIT_SLEEP", 2.0))
-        self.request_timestamps = deque(maxlen=self.rate_limit_per_minute)  # храним времена последних запросов
+    async def _call_groq_with_retry(self, prompt: str, retries: int = 3) -> str:
+        for attempt in range(retries):
+            try:
+                async with self.semaphore:
+                    await self.rate_limiter.acquire()
+                    response = await self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": "You are a professional technical translator. Translate accurately, preserve terminology, do not add comments."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=0.2,
+                        max_tokens=2048
+                    )
+                    result = response.choices[0].message.content.strip()
+                    result = re.sub(r'\s+', ' ', result)
+                    result = result.replace("\u00ad", "").replace("­", "")
+                    return result
+            except Exception as e:
+                logger.warning(f"Attempt {attempt+1} failed: {e}")
+                if attempt == retries - 1:
+                    logger.error(f"Groq API error after {retries} attempts: {e}")
+                    raise
+                await asyncio.sleep(2 ** attempt)
+        return "[TRANSLATION ERROR]"
 
-    def _wait_if_needed(self):
-        """Проверяет, не превышен ли лимит запросов в минуту, и ждёт при необходимости."""
-        if len(self.request_timestamps) < self.rate_limit_per_minute:
-            return
-        # Смотрим на самый старый timestamp
-        oldest = self.request_timestamps[0]
-        now = time.time()
-        if now - oldest < 60:
-            sleep_time = 60 - (now - oldest)
-            logger.warning(f"Rate limit reached. Sleeping for {sleep_time:.2f}s")
-            time.sleep(sleep_time)
+    def translate_by_pages(self, blocks: List, src_lang: str, tgt_lang: str,
+                           glossary: Optional[Dict[str, str]] = None,
+                           max_blocks_per_req: int = 20) -> List[str]:
+        return asyncio.run(self._translate_by_pages_async(blocks, src_lang, tgt_lang, glossary, max_blocks_per_req))
 
-    def translate_blocks(self, blocks: List, src_lang: str, tgt_lang: str, glossary: Optional[Dict[str, str]] = None) -> List[str]:
-        translated = []
-        previous_block_text = ""
+    def translate_blocks(self, blocks: List, src_lang: str, tgt_lang: str,
+                         glossary: Optional[Dict[str, str]] = None,
+                         batch_size: int = 20) -> List[str]:
+        return self.translate_by_pages(blocks, src_lang, tgt_lang, glossary, max_blocks_per_req=batch_size)
 
-        for i, block in enumerate(blocks):
-            # Проверяем кэш Redis
-            cached = self.cache.get(block.text, src_lang, tgt_lang, glossary)
-            if cached:
-                translated_text = cached
-                logger.debug(f"Cache hit for block {i}")
-            else:
-                prompt = self._build_prompt(block.text, previous_block_text, src_lang, tgt_lang, glossary)
-                translated_text = self._call_groq(prompt)
-                # Сохраняем в Redis
-                self.cache.set(block.text, src_lang, tgt_lang, glossary, translated_text)
-                logger.info(f"Translated block {i+1}/{len(blocks)}")
+    async def _translate_by_pages_async(self, blocks: List, src_lang: str, tgt_lang: str,
+                                        glossary: Optional[Dict[str, str]],
+                                        max_blocks_per_req: int) -> List[str]:
+        page_map = defaultdict(list)
+        for idx, blk in enumerate(blocks):
+            page_map[blk.page_number].append((idx, blk))
 
-            translated.append(translated_text)
-            previous_block_text = block.text
+        results = [""] * len(blocks)
+        tasks = []
+        task_info = []
 
-        return translated
+        for page_num, page_blocks in page_map.items():
+            for chunk_start in range(0, len(page_blocks), max_blocks_per_req):
+                chunk = page_blocks[chunk_start:chunk_start+max_blocks_per_req]
+                texts = [blk[1].text for blk in chunk]
+                combined = "\n---\n".join(texts)
 
+                cached = self.cache.get(combined, src_lang, tgt_lang, glossary)
+                if cached:
+                    parts = cached.split("\n---\n")
+                    if len(parts) == len(chunk):
+                        for (orig_idx, blk), trans in zip(chunk, parts):
+                            results[orig_idx] = trans
+                        continue
 
-    def _build_prompt(self, current_text: str, prev_text: str, src_lang: str, tgt_lang: str, glossary: Optional[Dict[str, str]]) -> str:
-        """Формирует промпт для LLM с контекстом и глоссарием."""
-        context = ""
-        if prev_text:
-            context = f"Previous text for context:\n{prev_text}\n\n"
-        glossary_text = ""
+                prompt = self._build_prompt(combined, src_lang, tgt_lang, glossary)
+                tasks.append(self._call_groq_with_retry(prompt))
+                task_info.append((chunk, page_num, chunk_start))
+
+        if tasks:
+            responses = await asyncio.gather(*tasks)
+            for resp, (chunk, page_num, start) in zip(responses, task_info):
+                parts = resp.split("\n---\n")
+                if len(parts) != len(chunk):
+                    logger.warning(f"Page {page_num}: expected {len(chunk)} parts, got {len(parts)}. Using fallback.")
+                    parts = [resp] * len(chunk)
+                for (orig_idx, blk), trans in zip(chunk, parts):
+                    trans = re.sub(r'\s+', ' ', trans)
+                    trans = trans.replace("\u00ad", "").replace("­", "")
+                    results[orig_idx] = trans
+                    self.cache.set(blk.text, src_lang, tgt_lang, glossary, trans)
+        return results
+
+    def _build_prompt(self, current_text: str, src_lang: str, tgt_lang: str,
+                      glossary: Optional[Dict[str, str]]) -> str:
+        gloss = ""
         if glossary:
-            gloss = "\n".join([f"'{k}' -> '{v}'" for k, v in glossary.items()])
-            glossary_text = f"Use this glossary for technical terms:\n{gloss}\n\n"
-        prompt = f"""{context}{glossary_text}Translate the following text from {src_lang} to {tgt_lang}.
-Keep the original formatting (line breaks, punctuation, numbers, code). Return only the translation, no explanations.
+            gloss = "\n".join([f"'{k}' -> '{v}'" for k, v in glossary.items()]) + "\n\n"
+        return f"""{gloss}Translate the following text(s) from {src_lang} to {tgt_lang}.
+Each text block is separated by '---'. Preserve the separators in output. Return only the translation(s).
 
-Text to translate:
+Text(s) to translate:
 {current_text}"""
-        return prompt
-
-    def _call_groq(self, prompt: str) -> str:
-        """Отправляет запрос к Groq API с соблюдением rate limiting."""
-        self._wait_if_needed()
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": "You are a professional technical translator. Translate accurately, preserve terminology, do not add comments."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.2,
-                max_tokens=2048
-            )
-            result = response.choices[0].message.content.strip()
-            # Запоминаем время запроса
-            self.request_timestamps.append(time.time())
-            # Пауза после запроса для соблюдения среднего лимита
-            if self.rate_limit_sleep > 0:
-                time.sleep(self.rate_limit_sleep)
-            return result
-        except Exception as e:
-            logger.error(f"Groq API error: {e}")
-            return f"[TRANSLATION ERROR: {e}]"

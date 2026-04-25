@@ -20,9 +20,18 @@ class PDFParserService:
                     raw_blocks = PDFParserService._words_to_blocks(words, page_num)
                     classified_blocks = PDFParserService._classify_blocks(raw_blocks, page, page_num)
                     all_blocks.extend(classified_blocks)
+
+                    # Очистка текста в каждом блоке
+                    for blk in classified_blocks:
+                        blk.text = PDFParserService._clean_text(blk.text)
+                        # Затем объединение коротких блоков
+                        classified_blocks = PDFParserService._merge_short_blocks(classified_blocks)
+
                 else:
                     logger.warning(f"Страница {page_num} не содержит слов")
         logger.info(f"Извлечено {len(all_blocks)} блоков из {pdf_path}")
+        tables = page.find_tables()
+        print(f"Page {page_num}: found {len(tables)} tables")
         return all_blocks
 
     @staticmethod
@@ -166,3 +175,62 @@ class PDFParserService:
             block.font_name = common_font
 
         return blocks
+    
+
+    @staticmethod
+    def _clean_text(text: str) -> str:
+        """Удаляет мягкие переносы, управляющие символы, лишние дефисы."""
+        import re
+        # Удаляем символы мягкого переноса (shy)
+        text = text.replace("\u00ad", "").replace("­", "")
+        # Удаляем повторяющиеся дефисы и пробелы
+        text = re.sub(r'\s*-\s*', '-', text)
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip()
+
+    @staticmethod
+    def _merge_short_blocks(blocks: List[Block], max_length: int = 60) -> List[Block]:
+        """Объединяет короткие последовательные блоки (не таблицы и не заголовки)."""
+        if not blocks:
+            return blocks
+        merged = []
+        i = 0
+        while i < len(blocks):
+            current = blocks[i]
+            # Пропускаем таблицы и заголовки (они не объединяются)
+            if current.type in ("table", "heading"):
+                merged.append(current)
+                i += 1
+                continue
+            # Ищем следующие короткие блоки на той же странице
+            merged_text = current.text
+            merged_bbox = current.bbox
+            j = i + 1
+            while j < len(blocks) and blocks[j].page_number == current.page_number and blocks[j].type not in ("table", "heading"):
+                if len(blocks[j].text) < max_length:
+                    merged_text += " " + blocks[j].text
+                    # Расширяем bounding box
+                    merged_bbox = BoundingBox(
+                        x0=min(merged_bbox.x0, blocks[j].bbox.x0),
+                        y0=min(merged_bbox.y0, blocks[j].bbox.y0),
+                        x1=max(merged_bbox.x1, blocks[j].bbox.x1),
+                        y1=max(merged_bbox.y1, blocks[j].bbox.y1)
+                    )
+                    j += 1
+                else:
+                    break
+            if j > i + 1:
+                # Создаём объединённый блок
+                new_block = Block(
+                    type=current.type,
+                    text=merged_text,
+                    page_number=current.page_number,
+                    bbox=merged_bbox,
+                    font_size=current.font_size,
+                    font_name=current.font_name
+                )
+                merged.append(new_block)
+            else:
+                merged.append(current)
+            i = j
+        return merged

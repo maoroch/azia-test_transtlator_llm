@@ -1,8 +1,12 @@
 {
-  "input_file": "tech_doc.pdf",
+  "input_file": "table_sample.pdf",
   "src_lang": "en",
   "tgt_lang": "ru",
-  "glossary": null,
+  "glossary": {
+    "PID": "ПИД-регулятор",
+    "PLC": "программируемый логический контроллер",
+    "HMI": "человеко-машинный интерфейс"
+  },
   "blocks": [
     {
       "type": "paragraph",
@@ -21,7 +25,7 @@
     },
     {
       "type": "paragraph",
-      "text": "PID Пропорционально-Интегрально-Дифференциальный контроллер",
+      "text": "ПИД-регулятор пропорционально-интегрально-дифференциальный контроллер",
       "original_text": "PID Proportional-Integral-Derivative controller",
       "page_number": 1,
       "bbox": {
@@ -36,7 +40,7 @@
     },
     {
       "type": "paragraph",
-      "text": "ПЛК Программируемый Логический Контроллер",
+      "text": "Программируемый логический контроллер",
       "original_text": "PLC Programmable Logic Controller",
       "page_number": 1,
       "bbox": {
@@ -51,7 +55,7 @@
     },
     {
       "type": "paragraph",
-      "text": "ИМИ Интерфейс человек-машина",
+      "text": "HMI Человеко-машинный интерфейс",
       "original_text": "HMI Human-Machine Interface",
       "page_number": 1,
       "bbox": {

@@ -44,6 +44,19 @@ if __name__ == "__main__":
         for idx, trans in zip(non_table_indices, non_table_translations):
             translated_texts[idx] = trans
 
+
+    if non_table_indices:
+        non_table_blocks = [blocks[i] for i in non_table_indices]
+        logger.info(f"Translating {len(non_table_blocks)} text blocks using page grouping (one request per page chunk)...")
+        translations = translator.translate_by_pages(
+            non_table_blocks, args.src_lang, args.tgt_lang, glossary,
+            max_blocks_per_req=args.batch_size
+        )
+        for idx, trans in zip(non_table_indices, translations):
+            translated_texts[idx] = trans
+        logger.info("Page-grouped translation completed")
+
+
     # 5. Выводим в консоль
     for original, translated in zip(blocks, translated_texts):
         if original.type == "table":
