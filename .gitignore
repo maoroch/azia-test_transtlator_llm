@@ -19,4 +19,4 @@ build/
 htmlcov/
 instance/
 .DS_Store
-*.egg-info/
+*.egg-info/*.zip
