@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Translator – Визуальный редактор</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #f3f4f6; font-family: 'Segoe UI', system-ui, sans-serif; }
+        .loading { display: inline-block; width: 20px; height: 20px; border: 2px solid #ccc; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="p-6">
+
+<div class="max-w-7xl mx-auto">
+    <h1 class="text-2xl font-bold mb-4 text-gray-800">📄 PDF Translator – Визуальный редактор</h1>
+    
+    <div class="bg-white rounded-lg shadow p-4 mb-6 flex flex-wrap gap-4 items-center">
+        <div class="flex-1 min-w-[250px]">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Загрузить PDF</label>
+            <input type="file" id="pdfFile" accept=".pdf" class="w-full border rounded p-2">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Страница</label>
+            <div class="flex gap-2">
+                <button id="prevPage" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">←</button>
+                <span id="pageNum" class="px-3 py-1 bg-gray-100 rounded">1</span>
+                <span id="pageCount" class="px-3 py-1 bg-gray-100 rounded">/ 0</span>
+                <button id="nextPage" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">→</button>
+            </div>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Масштаб</label>
+            <select id="zoomSelect" class="border rounded p-1">
+                <option value="0.5">50%</option>
+                <option value="0.75">75%</option>
+                <option value="1" selected>100%</option>
+                <option value="1.5">150%</option>
+                <option value="2">200%</option>
+            </select>
+        </div>
+        <div class="flex gap-2 items-end">
+            <button id="translateBtn" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">🌐 Перевести документ</button>
+            <button id="modeToggleBtn" class="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700">✏️ Режим: Перевод</button>
+            <button id="saveJsonBtn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">💾 Сохранить JSON</button>
+            <button id="generatePdfBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">📥 Сгенерировать PDF</button>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-4 overflow-auto flex justify-center" style="min-height: 80vh;">
+        <div id="pdfCanvasContainer" class="relative inline-block">
+            <canvas id="pdfCanvas" class="border shadow-sm"></canvas>
+            <canvas id="fabricCanvas" class="absolute top-0 left-0" style="pointer-events: auto;"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    let sessionId = null, blocks = [], currentPage = 1, totalPages = 0, pdfDoc = null, scale = 1.0, fabricCanvas = null;
+    let editMode = 'translated'; // 'translated' или 'original'
+    
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+    const fileInput = document.getElementById('pdfFile');
+    const prevBtn = document.getElementById('prevPage');
+    const nextBtn = document.getElementById('nextPage');
+    const pageNumSpan = document.getElementById('pageNum');
+    const pageCountSpan = document.getElementById('pageCount');
+    const zoomSelect = document.getElementById('zoomSelect');
+    const translateBtn = document.getElementById('translateBtn');
+    const modeToggleBtn = document.getElementById('modeToggleBtn');
+    const saveJsonBtn = document.getElementById('saveJsonBtn');
+    const generatePdfBtn = document.getElementById('generatePdfBtn');
+    const pdfCanvas = document.getElementById('pdfCanvas');
+    const fabricCanvasEl = document.getElementById('fabricCanvas');
+
+    async function uploadPDF(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('http://localhost:8000/upload', { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('Upload failed');
+        const data = await res.json();
+        sessionId = data.session_id;
+        totalPages = data.page_count;
+        pageCountSpan.innerText = `/ ${totalPages}`;
+        return data;
+    }
+
+    async function fetchBlocks(pageNum) {
+        const res = await fetch(`http://localhost:8000/blocks/${sessionId}`);
+        const data = await res.json();
+        return data.blocks.filter(b => b.page_number === pageNum);
+    }
+
+    async function updateBlocksOnServer(updatedBlocksForCurrentPage) {
+        const res = await fetch(`http://localhost:8000/blocks/${sessionId}`);
+        const data = await res.json();
+        let allBlocks = data.blocks.filter(b => b.page_number !== currentPage);
+        allBlocks.push(...updatedBlocksForCurrentPage);
+        const updateRes = await fetch(`http://localhost:8000/blocks/${sessionId}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ blocks: allBlocks })
+        });
+        if (!updateRes.ok) throw new Error('Update failed');
+        blocks = updatedBlocksForCurrentPage;
+        return true;
+    }
+
+    async function translateDocument() {
+        if (!sessionId) { alert('Сначала загрузите PDF'); return; }
+        translateBtn.disabled = true;
+        translateBtn.innerText = 'Переводим...';
+        try {
+            const res = await fetch(`http://localhost:8000/translate/${sessionId}?src_lang=en&tgt_lang=ru`, { method: 'POST' });
+            if (!res.ok) throw new Error('Translation failed');
+            await renderPage(currentPage);
+            alert('Перевод выполнен');
+        } catch (err) { alert('Ошибка перевода: ' + err.message); }
+        finally { translateBtn.disabled = false; translateBtn.innerText = '🌐 Перевести документ'; }
+    }
+
+    async function generatePDF() {
+        const res = await fetch(`http://localhost:8000/generate/${sessionId}`, { method: 'POST' });
+        const data = await res.json();
+        window.open(`http://localhost:8000${data.download_url}`, '_blank');
+    }
+
+    async function saveToJSON() {
+        const res = await fetch(`http://localhost:8000/blocks/${sessionId}`);
+        const data = await res.json();
+        const blob = new Blob([JSON.stringify(data.blocks, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `pdf_blocks_${sessionId}.json`; a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    async function renderPage(pageNum) {
+        if (!pdfDoc) return;
+        const page = await pdfDoc.getPage(pageNum);
+        const viewport = page.getViewport({ scale });
+        pdfCanvas.width = viewport.width; pdfCanvas.height = viewport.height;
+        fabricCanvasEl.width = viewport.width; fabricCanvasEl.height = viewport.height;
+        fabricCanvas?.setWidth(viewport.width); fabricCanvas?.setHeight(viewport.height);
+        const ctx = pdfCanvas.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        blocks = await fetchBlocks(pageNum);
+        renderBlocksOnCanvas();
+    }
+
+    function getDisplayText(block) {
+        return editMode === 'translated' ? (block.text || '') : (block.original_text || '');
+    }
+
+    function renderBlocksOnCanvas() {
+        if (!fabricCanvas) return;
+        fabricCanvas.clear();
+        for (let b of blocks) {
+            const rect = new fabric.Rect({
+                left: b.bbox.x0, top: b.bbox.y0,
+                width: b.bbox.x1 - b.bbox.x0, height: b.bbox.y1 - b.bbox.y0,
+                fill: 'rgba(59,130,246,0.15)', stroke: '#3b82f6', strokeWidth: 1,
+                hasControls: true, hasBorders: true, lockRotation: true, cornerColor: '#3b82f6', cornerSize: 8
+            });
+            const text = new fabric.Textbox(getDisplayText(b), {
+                left: b.bbox.x0 + 5, top: b.bbox.y0 + 5,
+                width: (b.bbox.x1 - b.bbox.x0) - 10,
+                fontSize: b.font_size || 12, fontFamily: 'Arial', fill: '#000000',
+                editable: true, hasControls: false, backgroundColor: 'rgba(255,255,200,0.7)'
+            });
+            const group = new fabric.Group([rect, text], {
+                left: b.bbox.x0, top: b.bbox.y0, originX: 'left', originY: 'top',
+                subTargetCheck: true, data: { originalBlock: b, mode: editMode }
+            });
+            fabricCanvas.add(group);
+        }
+        fabricCanvas.renderAll();
+    }
+
+    async function onCanvasModified() {
+        const updatedBlocks = [];
+        for (let obj of fabricCanvas.getObjects()) {
+            if (obj.type === 'group') {
+                const group = obj, rect = group.item(0), text = group.item(1), orig = group.data?.originalBlock;
+                if (!orig) continue;
+                const newX0 = group.left, newY0 = group.top;
+                const newWidth = rect.width, newHeight = rect.height;
+                const updated = { ...orig };
+                updated.bbox.x0 = newX0; updated.bbox.y0 = newY0;
+                updated.bbox.x1 = newX0 + newWidth; updated.bbox.y1 = newY0 + newHeight;
+                // Обновляем текст в зависимости от режима
+                if (editMode === 'translated') {
+                    updated.text = text.text;
+                } else {
+                    updated.original_text = text.text;
+                }
+                updated.font_size = text.fontSize;
+                updatedBlocks.push(updated);
+            }
+        }
+        if (updatedBlocks.length) {
+            try {
+                await updateBlocksOnServer(updatedBlocks);
+                renderBlocksOnCanvas(); // перерисовка для синхронизации
+            } catch (err) { console.error(err); alert('Ошибка сохранения'); }
+        }
+    }
+
+    function initFabric() {
+        if (fabricCanvas) fabricCanvas.dispose();
+        fabricCanvas = new fabric.Canvas(fabricCanvasEl, { selection: true, preserveObjectStacking: true });
+        fabricCanvas.on('object:modified', onCanvasModified);
+        fabricCanvas.on('text:changed', onCanvasModified);
+    }
+
+    async function loadPDF(file) {
+        try {
+            await uploadPDF(file);
+            const arrayBuffer = await file.arrayBuffer();
+            pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            totalPages = pdfDoc.numPages;
+            pageCountSpan.innerText = `/ ${totalPages}`;
+            currentPage = 1; pageNumSpan.innerText = currentPage;
+            initFabric();
+            await renderPage(currentPage);
+        } catch (err) { alert('Ошибка загрузки: ' + err.message); }
+    }
+
+    function toggleEditMode() {
+        editMode = editMode === 'translated' ? 'original' : 'translated';
+        modeToggleBtn.innerText = editMode === 'translated' ? '✏️ Режим: Перевод' : '✏️ Режим: Оригинал';
+        renderBlocksOnCanvas();
+    }
+
+    fileInput.addEventListener('change', e => e.target.files.length && loadPDF(e.target.files[0]));
+    prevBtn.addEventListener('click', async () => { if (currentPage > 1) { currentPage--; pageNumSpan.innerText = currentPage; await renderPage(currentPage); } });
+    nextBtn.addEventListener('click', async () => { if (currentPage < totalPages) { currentPage++; pageNumSpan.innerText = currentPage; await renderPage(currentPage); } });
+    zoomSelect.addEventListener('change', async e => { scale = parseFloat(e.target.value); if (pdfDoc) await renderPage(currentPage); });
+    translateBtn.addEventListener('click', translateDocument);
+    modeToggleBtn.addEventListener('click', toggleEditMode);
+    saveJsonBtn.addEventListener('click', saveToJSON);
+    generatePdfBtn.addEventListener('click', generatePDF);
+</script>
+</body>
+</html>

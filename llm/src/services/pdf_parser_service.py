@@ -17,13 +17,11 @@ class PDFParserService:
                 words = page.extract_words()
                 if words:
                     raw_blocks = PDFParserService._words_to_blocks_v2(words, page_num)
+                    # В extract_blocks убрать вызов _merge_short_blocks:
                     classified_blocks = PDFParserService._classify_blocks(raw_blocks, page, page_num)
                     for blk in classified_blocks:
                         blk.text = PDFParserService._clean_text(blk.text)
-                    classified_blocks = PDFParserService._merge_short_blocks(classified_blocks)
-                    # Дополнительная нормализация: восстановление пробелов
-                    for blk in classified_blocks:
-                        blk.text = PDFParserService._normalize_spaces(blk.text)
+                    # classified_blocks = PDFParserService._merge_short_blocks(classified_blocks)  # ЗАКОММЕНТИРОВАТЬ
                     all_blocks.extend(classified_blocks)
                 else:
                     logger.warning(f"Страница {page_num} не содержит слов")
@@ -73,7 +71,7 @@ class PDFParserService:
         current_line = []
         current_top = None
         for w in words_sorted:
-            if current_top is None or abs(w['top'] - current_top) > 5:
+            if current_top is None or abs(w['top'] - current_top) > 12:
                 if current_line:
                     lines.append(current_line)
                 current_line = [w]
@@ -89,7 +87,7 @@ class PDFParserService:
             prev_x1 = None
             for w in line:
                 text = w['text']
-                if prev_x1 is not None and (w['x0'] - prev_x1) > 1.5:
+                if prev_x1 is not None and (w['x0'] - prev_x1) > 4:
                     text_parts.append(' ')
                 text_parts.append(text)
                 prev_x1 = w['x1']
@@ -132,7 +130,7 @@ class PDFParserService:
         return text
 
     @staticmethod
-    def _merge_short_blocks(blocks: List[Block], max_len: int = 60) -> List[Block]:
+    def _merge_short_blocks(blocks: List[Block], max_len: int = 250) -> List[Block]:
         if not blocks:
             return blocks
         merged = []

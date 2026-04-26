@@ -127,3 +127,9 @@ Each text block is separated by '---'. Preserve the separators in output. Return
 
 Text(s) to translate:
 {current_text}"""
+
+    async def translate_blocks_async(self, blocks: List, src_lang: str, tgt_lang: str,
+                                     glossary: Optional[Dict[str, str]] = None,
+                                     batch_size: int = 20) -> List[str]:
+        """Асинхронная версия translate_blocks для использования в FastAPI."""
+        return await self._translate_by_pages_async(blocks, src_lang, tgt_lang, glossary, max_blocks_per_req=batch_size)
