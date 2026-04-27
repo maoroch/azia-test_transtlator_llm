@@ -96,6 +96,7 @@
     }
 
     async function updateBlocksOnServer(updatedBlocksForCurrentPage) {
+        // Загружаем все блоки сессии
         const res = await fetch(`http://localhost:8000/blocks/${sessionId}`);
         const data = await res.json();
         let allBlocks = data.blocks.filter(b => b.page_number !== currentPage);
@@ -152,59 +153,166 @@
     }
 
     function getDisplayText(block) {
-        return editMode === 'translated' ? (block.text || '') : (block.original_text || '');
+        return editMode === 'translated' ? (block.text || '') : (block.original_text || block.text || '');
     }
 
     function renderBlocksOnCanvas() {
         if (!fabricCanvas) return;
         fabricCanvas.clear();
         for (let b of blocks) {
-            const rect = new fabric.Rect({
-                left: b.bbox.x0, top: b.bbox.y0,
-                width: b.bbox.x1 - b.bbox.x0, height: b.bbox.y1 - b.bbox.y0,
-                fill: 'rgba(59,130,246,0.15)', stroke: '#3b82f6', strokeWidth: 1,
-                hasControls: true, hasBorders: true, lockRotation: true, cornerColor: '#3b82f6', cornerSize: 8
-            });
-            const text = new fabric.Textbox(getDisplayText(b), {
-                left: b.bbox.x0 + 5, top: b.bbox.y0 + 5,
-                width: (b.bbox.x1 - b.bbox.x0) - 10,
-                fontSize: b.font_size || 12, fontFamily: 'Arial', fill: '#000000',
-                editable: true, hasControls: false, backgroundColor: 'rgba(255,255,200,0.7)'
-            });
-            const group = new fabric.Group([rect, text], {
-                left: b.bbox.x0, top: b.bbox.y0, originX: 'left', originY: 'top',
-                subTargetCheck: true, data: { originalBlock: b, mode: editMode }
-            });
-            fabricCanvas.add(group);
+            if (b.type === 'table' && b.table_data) {
+                // Таблица: ячейки
+                for (let row of b.table_data.cells) {
+                    for (let cell of row) {
+                        const rect = new fabric.Rect({
+                            left: cell.bbox.x0, top: cell.bbox.y0,
+                            width: cell.bbox.x1 - cell.bbox.x0, height: cell.bbox.y1 - cell.bbox.y0,
+                            fill: 'rgba(59,130,246,0.15)', stroke: '#3b82f6', strokeWidth: 1,
+                            hasControls: true, hasBorders: true, lockRotation: true,
+                            cornerColor: '#3b82f6', cornerSize: 8
+                        });
+                        const text = new fabric.Textbox(cell.text || '', {
+                            left: cell.bbox.x0 + 2, top: cell.bbox.y0 + 2,
+                            width: (cell.bbox.x1 - cell.bbox.x0) - 4,
+                            fontSize: 10, fontFamily: 'Arial', fill: '#000000',
+                            editable: true, hasControls: false, backgroundColor: 'rgba(255,255,200,0.7)'
+                        });
+                        const group = new fabric.Group([rect, text], {
+                            left: cell.bbox.x0, top: cell.bbox.y0,
+                            originX: 'left', originY: 'top',
+                            subTargetCheck: true,
+                            data: { type: 'table_cell', originalCell: cell, parentBlock: b }
+                        });
+                        fabricCanvas.add(group);
+                    }
+                }
+                // Границы таблицы
+                if (b.table_data.cell_borders) {
+                    for (let border of b.table_data.cell_borders) {
+                        if (border.type === 'rect') {
+                            fabricCanvas.add(new fabric.Rect({
+                                left: border.x0, top: border.y0,
+                                width: border.x1 - border.x0, height: border.y1 - border.y0,
+                                fill: 'rgba(0,0,0,0)', stroke: 'red', strokeWidth: 1,
+                                selectable: false, evented: false
+                            }));
+                        } else if (border.type === 'line') {
+                            fabricCanvas.add(new fabric.Line([border.x0, border.y0, border.x1, border.y1], {
+                                stroke: 'red', strokeWidth: 1, selectable: false, evented: false
+                            }));
+                        }
+                    }
+                }
+            } else {
+                // Обычный текстовый блок: прямоугольник + редактируемый текст (НЕ группа)
+                const rect = new fabric.Rect({
+                    left: b.bbox.x0, top: b.bbox.y0,
+                    width: b.bbox.x1 - b.bbox.x0, height: b.bbox.y1 - b.bbox.y0,
+                    fill: 'rgba(59,130,246,0.15)', stroke: '#3b82f6', strokeWidth: 1,
+                    hasControls: true, hasBorders: true, lockRotation: true,
+                    cornerColor: '#3b82f6', cornerSize: 8,
+                    selectable: true, evented: true,
+                    data: { type: 'rect', originalBlock: b }
+                });
+                const text = new fabric.Textbox(getDisplayText(b), {
+                    left: b.bbox.x0 + 5, top: b.bbox.y0 + 5,
+                    width: (b.bbox.x1 - b.bbox.x0) - 10,
+                    fontSize: b.font_size || 12, fontFamily: 'Arial', fill: '#000000',
+                    editable: true, hasControls: false, backgroundColor: 'rgba(255,255,200,0.7)',
+                    data: { type: 'text', originalBlock: b, mode: editMode }
+                });
+                fabricCanvas.add(rect);
+                fabricCanvas.add(text);
+                // Синхронизация перемещения: при перемещении прямоугольника двигаем текст, и наоборот
+                rect.on('moving', (e) => {
+                    text.set({ left: rect.left + 5, top: rect.top + 5 });
+                    fabricCanvas.renderAll();
+                });
+                text.on('moving', (e) => {
+                    rect.set({ left: text.left - 5, top: text.top - 5 });
+                    fabricCanvas.renderAll();
+                });
+                // При изменении размера прямоугольника подстраиваем текст
+                rect.on('scaling', (e) => {
+                    const newWidth = rect.width * rect.scaleX;
+                    const newHeight = rect.height * rect.scaleY;
+                    text.set({ width: newWidth - 10, left: rect.left + 5, top: rect.top + 5 });
+                    rect.set({ scaleX: 1, scaleY: 1, width: newWidth, height: newHeight });
+                    fabricCanvas.renderAll();
+                });
+            }
         }
         fabricCanvas.renderAll();
     }
 
     async function onCanvasModified() {
+        // Собираем обновлённые блоки для обычного текста (прямоугольник + текст)
         const updatedBlocks = [];
-        for (let obj of fabricCanvas.getObjects()) {
-            if (obj.type === 'group') {
-                const group = obj, rect = group.item(0), text = group.item(1), orig = group.data?.originalBlock;
+        const objects = fabricCanvas.getObjects();
+        const textMap = new Map(); // text object -> block index
+        // Сначала определим все текстовые и прямоугольные объекты
+        for (let obj of objects) {
+            if (obj.type === 'textbox' && obj.data && obj.data.type === 'text') {
+                const orig = obj.data.originalBlock;
                 if (!orig) continue;
-                const newX0 = group.left, newY0 = group.top;
-                const newWidth = rect.width, newHeight = rect.height;
+                // Ищем соответствующий прямоугольник
+                const rectObj = objects.find(o => o.data && o.data.type === 'rect' && o.data.originalBlock === orig);
+                if (!rectObj) continue;
+                const newX0 = rectObj.left;
+                const newY0 = rectObj.top;
+                const newWidth = rectObj.width;
+                const newHeight = rectObj.height;
                 const updated = { ...orig };
-                updated.bbox.x0 = newX0; updated.bbox.y0 = newY0;
-                updated.bbox.x1 = newX0 + newWidth; updated.bbox.y1 = newY0 + newHeight;
-                // Обновляем текст в зависимости от режима
+                updated.bbox.x0 = newX0;
+                updated.bbox.y0 = newY0;
+                updated.bbox.x1 = newX0 + newWidth;
+                updated.bbox.y1 = newY0 + newHeight;
                 if (editMode === 'translated') {
-                    updated.text = text.text;
+                    updated.text = obj.text;
                 } else {
-                    updated.original_text = text.text;
+                    updated.original_text = obj.text;
                 }
-                updated.font_size = text.fontSize;
+                updated.font_size = obj.fontSize;
                 updatedBlocks.push(updated);
+            } else if (obj.type === 'group' && obj.data && obj.data.type === 'table_cell') {
+                // Таблицы обрабатываем отдельно
+                const cell = obj.data.originalCell;
+                const parent = obj.data.parentBlock;
+                const rect = obj.item(0);
+                const text = obj.item(1);
+                const newX0 = obj.left;
+                const newY0 = obj.top;
+                const newWidth = rect.width;
+                const newHeight = rect.height;
+                const updatedCell = { ...cell };
+                updatedCell.bbox.x0 = newX0;
+                updatedCell.bbox.y0 = newY0;
+                updatedCell.bbox.x1 = newX0 + newWidth;
+                updatedCell.bbox.y1 = newY0 + newHeight;
+                updatedCell.text = text.text;
+                // Обновляем ячейки в родительском блоке
+                const updatedParent = { ...parent };
+                const newCells = parent.table_data.cells.map(row =>
+                    row.map(c => (c === cell) ? updatedCell : c)
+                );
+                updatedParent.table_data = { ...parent.table_data, cells: newCells };
+                updatedBlocks.push(updatedParent);
             }
         }
-        if (updatedBlocks.length) {
+        // Дедупликация (убираем дубликаты таблиц)
+        const unique = [];
+        const ids = new Set();
+        for (let b of updatedBlocks) {
+            const id = b.bbox.x0 + b.bbox.y0 + b.page_number + (b.type || '');
+            if (!ids.has(id)) {
+                ids.add(id);
+                unique.push(b);
+            }
+        }
+        if (unique.length) {
             try {
-                await updateBlocksOnServer(updatedBlocks);
-                renderBlocksOnCanvas(); // перерисовка для синхронизации
+                await updateBlocksOnServer(unique);
+                renderBlocksOnCanvas(); // перерисовываем для синхронизации
             } catch (err) { console.error(err); alert('Ошибка сохранения'); }
         }
     }

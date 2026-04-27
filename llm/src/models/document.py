@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict, Any
 
 class BoundingBox(BaseModel):
     x0: float
@@ -11,11 +11,13 @@ class Table(BaseModel):
     data: List[List[str]] = []
     bbox: BoundingBox
     page_number: int
-    cells: List[List[dict]] = [] 
+    cells: List[List[Dict[str, Any]]] = []
+    cell_borders: Optional[List[Dict[str, Any]]] = None
 
 class Block(BaseModel):
     type: Literal["paragraph", "heading", "list", "table", "other"]
-    text: str = ""   # для таблиц можно оставить пустым
+    text: str = ""
+    original_text: str = ""
     page_number: int
     bbox: BoundingBox
     font_size: Optional[float] = None

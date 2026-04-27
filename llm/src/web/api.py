@@ -91,6 +91,15 @@ async def translate_session(session_id: str, src_lang: str = "en", tgt_lang: str
     data["blocks"] = [b.model_dump() for b in blocks]
     _save_session(session_id, data)
     return {"status": "translated"}
+@app.post("/redetect_table/{session_id}/{page_num}")
+async def redetect_table(session_id: str, page_num: int):
+    data = _get_session(session_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Session not found")
+    # Здесь можно было бы повторно открыть PDF и перепарсить таблицы,
+    # но для краткости просто возвращаем статус.
+    # В реальной реализации нужно заменить все блоки таблиц на странице.
+    return {"status": "not implemented in this version, but you can refresh or reload"}
 
 @app.post("/blocks/{session_id}")
 async def update_blocks(session_id: str, update: BlockUpdate):
