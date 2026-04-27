@@ -21,3 +21,4 @@ instance/
 .DS_Store
 *.egg-info/*.zip
 *.zipo
+llm/data/*
