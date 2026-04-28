@@ -3,67 +3,334 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF Translator – Визуальный редактор</title>
+    <title>PDF Translator – Расширенный визуальный редактор</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { background: #f3f4f6; font-family: 'Segoe UI', system-ui, sans-serif; }
-        .loading { display: inline-block; width: 20px; height: 20px; border: 2px solid #ccc; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.6s linear infinite; }
+        * { box-sizing: border-box; }
+        body { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            min-height: 100vh;
+        }
+        .container { max-width: 100%; margin: 0 auto; }
+        .panel { background: white; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.1); }
+        .btn { 
+            transition: all 0.2s ease; 
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        
+        .toolbar { 
+            display: flex; 
+            gap: 0.5rem; 
+            flex-wrap: wrap; 
+            padding: 1rem; 
+        }
+        .toolbar-group {
+            display: flex;
+            gap: 0.5rem;
+            padding: 0.5rem;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .toolbar-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            align-self: center;
+        }
+        
+        .canvas-container {
+            position: relative;
+            display: inline-block;
+            border: 3px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        
+        #fabricCanvas { cursor: default !important; }
+        #fabricCanvas.text-tool { cursor: text !important; }
+        
+        .context-menu {
+            position: absolute;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            min-width: 200px;
+        }
+        .context-menu-item {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 0.9rem;
+            transition: background 0.2s;
+        }
+        .context-menu-item:hover { background: #f5f5f5; }
+        .context-menu-item:last-child { border-bottom: none; }
+        .context-menu-item.danger { color: #dc3545; }
+        
+        .properties-panel {
+            position: fixed;
+            right: 0;
+            top: 200px;
+            width: 320px;
+            max-height: 60vh;
+            background: white;
+            border-radius: 8px 0 0 8px;
+            border-left: 3px solid #667eea;
+            padding: 1rem;
+            box-shadow: -4px 4px 12px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            z-index: 100;
+        }
+        .properties-panel.hidden { display: none; }
+        .property-row {
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+        .property-label {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 0.3rem;
+            display: block;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .property-input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 2000;
+            animation: slideIn 0.3s ease;
+        }
+        .notification.error { background: #dc3545; }
+        @keyframes slideIn { from { transform: translateX(400px); } to { transform: translateX(0); } }
+        
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #333;
+            color: white;
+            padding: 0.5rem 1rem;
+            font-size: 0.85rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .loading { 
+            display: inline-block; 
+            width: 16px; 
+            height: 16px; 
+            border: 2px solid #ccc; 
+            border-top-color: #667eea; 
+            border-radius: 50%; 
+            animation: spin 0.6s linear infinite; 
+        }
         @keyframes spin { to { transform: rotate(360deg); } }
+        
+        .blocks-list {
+            position: fixed;
+            left: 0;
+            top: 200px;
+            width: 280px;
+            max-height: 60vh;
+            background: white;
+            border-radius: 0 8px 8px 0;
+            border-right: 3px solid #667eea;
+            overflow-y: auto;
+            box-shadow: 4px 4px 12px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+        .blocks-list.hidden { display: none; }
+        .block-item {
+            padding: 0.75rem;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 0.85rem;
+        }
+        .block-item:hover { background: #f5f5f5; }
+        .block-item.selected { background: #e7f3ff; border-left: 3px solid #667eea; }
+        .block-item-type {
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: #667eea;
+            text-transform: uppercase;
+        }
+        .block-item-text { 
+            color: #666; 
+            margin-top: 0.3rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     </style>
 </head>
-<body class="p-6">
+<body class="p-4">
 
-<div class="max-w-7xl mx-auto">
-    <h1 class="text-2xl font-bold mb-4 text-gray-800">📄 PDF Translator – Визуальный редактор</h1>
-    
-    <div class="bg-white rounded-lg shadow p-4 mb-6 flex flex-wrap gap-4 items-center">
-        <div class="flex-1 min-w-[250px]">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Загрузить PDF</label>
-            <input type="file" id="pdfFile" accept=".pdf" class="w-full border rounded p-2">
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Страница</label>
-            <div class="flex gap-2">
-                <button id="prevPage" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">←</button>
-                <span id="pageNum" class="px-3 py-1 bg-gray-100 rounded">1</span>
-                <span id="pageCount" class="px-3 py-1 bg-gray-100 rounded">/ 0</span>
-                <button id="nextPage" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300">→</button>
+<div class="container">
+    <!-- Заголовок -->
+    <div class="mb-4">
+        <h1 class="text-3xl font-bold text-white mb-2">📄 PDF Translator – Расширенный редактор</h1>
+        <p class="text-blue-100">Полный контроль: редактирование, перемещение, удаление и перевод текста</p>
+    </div>
+
+    <!-- Основная панель управления -->
+    <div class="panel mb-4">
+        <!-- Строка 1: Загрузка и навигация -->
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <span class="toolbar-label">📁 Файл</span>
+                <input type="file" id="pdfFile" accept=".pdf" class="px-3 py-2 border rounded bg-white cursor-pointer text-sm">
+            </div>
+            
+            <div class="toolbar-group">
+                <span class="toolbar-label">📄 Страница</span>
+                <button id="prevPage" class="btn px-3 py-2 bg-gray-200 hover:bg-gray-300">←</button>
+                <span id="pageNum" class="px-3 py-2 bg-gray-100 rounded">1</span>
+                <span id="pageCount" class="px-3 py-2 bg-gray-100 rounded">/ 0</span>
+                <button id="nextPage" class="btn px-3 py-2 bg-gray-200 hover:bg-gray-300">→</button>
+            </div>
+            
+            <div class="toolbar-group">
+                <span class="toolbar-label">🔍 Масштаб</span>
+                <select id="zoomSelect" class="px-2 py-2 border rounded bg-white text-sm">
+                    <option value="0.5">50%</option>
+                    <option value="0.75">75%</option>
+                    <option value="1" selected>100%</option>
+                    <option value="1.5">150%</option>
+                    <option value="2">200%</option>
+                </select>
             </div>
         </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Масштаб</label>
-            <select id="zoomSelect" class="border rounded p-1">
-                <option value="0.5">50%</option>
-                <option value="0.75">75%</option>
-                <option value="1" selected>100%</option>
-                <option value="1.5">150%</option>
-                <option value="2">200%</option>
-            </select>
+
+        <!-- Строка 2: Перевод и редактирование -->
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <span class="toolbar-label">🌐 Перевод</span>
+                <button id="translateBtn" class="btn px-4 py-2 bg-purple-600 text-white hover:bg-purple-700">
+                    Перевести
+                </button>
+                <select id="srcLangSelect" class="px-2 py-2 border rounded bg-white text-sm">
+                    <option value="en">English</option>
+                    <option value="kk">Қазақша</option>
+                    <option value="ru">Русский</option>
+                    <option value="de">Deutsch</option>
+                    <option value="fr">Français</option>
+                </select>
+                <select id="tgtLangSelect" class="px-2 py-2 border rounded bg-white text-sm">
+                    <option value="ru" selected>Русский</option>
+                    <option value="kk">Қазақша</option>
+                    <option value="de">Deutsch</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+            
+            <div class="toolbar-group">
+                <span class="toolbar-label">✏️ Режим</span>
+                <button id="modeToggleBtn" class="btn px-4 py-2 bg-yellow-600 text-white hover:bg-yellow-700">
+                    Перевод
+                </button>
+            </div>
+            
+            <div class="toolbar-group">
+                <span class="toolbar-label">🛠️ Инструменты</span>
+                <button id="toggleBlocksListBtn" class="btn px-3 py-2 bg-blue-600 text-white hover:bg-blue-700">
+                    Блоки
+                </button>
+                <button id="togglePropertiesBtn" class="btn px-3 py-2 bg-green-600 text-white hover:bg-green-700">
+                    Свойства
+                </button>
+            </div>
         </div>
-        <div class="flex gap-2 items-end">
-            <button id="translateBtn" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">🌐 Перевести документ</button>
-            <button id="modeToggleBtn" class="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700">✏️ Режим: Перевод</button>
-            <button id="saveJsonBtn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">💾 Сохранить JSON</button>
-            <button id="generatePdfBtn" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">📥 Сгенерировать PDF</button>
+
+        <!-- Строка 3: История и сохранение -->
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <span class="toolbar-label">⏱️ История</span>
+                <button id="undoBtn" class="btn px-3 py-2 bg-gray-200 hover:bg-gray-300">↶ Отменить</button>
+                <button id="redoBtn" class="btn px-3 py-2 bg-gray-200 hover:bg-gray-300">↷ Повторить</button>
+                <button id="historyBtn" class="btn px-3 py-2 bg-gray-500 text-white hover:bg-gray-600">История</button>
+            </div>
+            
+            <div class="toolbar-group">
+                <span class="toolbar-label">💾 Сохранение</span>
+                <button id="saveJsonBtn" class="btn px-4 py-2 bg-green-600 text-white hover:bg-green-700">
+                    Экспорт JSON
+                </button>
+                <button id="generatePdfBtn" class="btn px-4 py-2 bg-blue-600 text-white hover:bg-blue-700">
+                    PDF
+                </button>
+            </div>
         </div>
     </div>
 
-    <div class="bg-white rounded-lg shadow p-4 overflow-auto flex justify-center" style="min-height: 80vh;">
-        <div id="pdfCanvasContainer" class="relative inline-block">
+    <!-- Основной контент: Canvas -->
+    <div class="panel flex justify-center" style="min-height: 70vh; position: relative;">
+        <div class="canvas-container">
             <canvas id="pdfCanvas" class="border shadow-sm"></canvas>
             <canvas id="fabricCanvas" class="absolute top-0 left-0" style="pointer-events: auto;"></canvas>
+        </div>
+        
+        <!-- Панель блоков -->
+        <div id="blocksList" class="blocks-list hidden">
+            <h3 class="font-bold p-3 border-b">Блоки на странице</h3>
+            <div id="blocksListContent"></div>
+        </div>
+        
+        <!-- Панель свойств -->
+        <div id="propertiesPanel" class="properties-panel hidden">
+            <h3 class="font-bold mb-4 text-center">Свойства блока</h3>
+            <div id="propertiesContent">
+                <p class="text-gray-500 text-center">Выберите блок для редактирования</p>
+            </div>
         </div>
     </div>
 </div>
 
+<!-- Строка состояния -->
+<div class="status-bar">
+    <span id="statusText">Готово</span>
+    <span id="selectionInfo">Ничего не выбрано</span>
+</div>
+
 <script>
-    let sessionId = null, blocks = [], currentPage = 1, totalPages = 0, pdfDoc = null, scale = 1.0, fabricCanvas = null;
-    let editMode = 'translated'; // 'translated' или 'original'
-    
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
+    // ==================== СОСТОЯНИЕ ====================
+    let sessionId = null, blocks = [], currentPage = 1, totalPages = 0, pdfDoc = null, scale = 1.0;
+    let fabricCanvas = null, selectedBlock = null, editMode = 'translated';
+    let history = [];
+
+    // ==================== ЭЛЕМЕНТЫ DOM ====================
     const fileInput = document.getElementById('pdfFile');
     const prevBtn = document.getElementById('prevPage');
     const nextBtn = document.getElementById('nextPage');
@@ -74,9 +341,42 @@
     const modeToggleBtn = document.getElementById('modeToggleBtn');
     const saveJsonBtn = document.getElementById('saveJsonBtn');
     const generatePdfBtn = document.getElementById('generatePdfBtn');
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+    const historyBtn = document.getElementById('historyBtn');
     const pdfCanvas = document.getElementById('pdfCanvas');
     const fabricCanvasEl = document.getElementById('fabricCanvas');
+    const toggleBlocksListBtn = document.getElementById('toggleBlocksListBtn');
+    const togglePropertiesBtn = document.getElementById('togglePropertiesBtn');
+    const blocksList = document.getElementById('blocksList');
+    const propertiesPanel = document.getElementById('propertiesPanel');
+    const statusText = document.getElementById('statusText');
+    const selectionInfo = document.getElementById('selectionInfo');
+    const srcLangSelect = document.getElementById('srcLangSelect');
+    const tgtLangSelect = document.getElementById('tgtLangSelect');
 
+    // ==================== УТИЛИТЫ ====================
+    function showNotification(message, isError = false) {
+        const notif = document.createElement('div');
+        notif.className = `notification ${isError ? 'error' : ''}`;
+        notif.innerText = message;
+        document.body.appendChild(notif);
+        setTimeout(() => notif.remove(), 3000);
+    }
+
+    function updateStatus(message) {
+        statusText.innerText = message;
+    }
+
+    function updateSelectionInfo() {
+        if (selectedBlock) {
+            selectionInfo.innerText = `Блок: ${selectedBlock.type} (стр. ${selectedBlock.page_number})`;
+        } else {
+            selectionInfo.innerText = 'Ничего не выбрано';
+        }
+    }
+
+    // ==================== API ВЫЗОВЫ ====================
     async function uploadPDF(file) {
         const formData = new FormData();
         formData.append('file', file);
@@ -95,61 +395,104 @@
         return data.blocks.filter(b => b.page_number === pageNum);
     }
 
-    async function updateBlocksOnServer(updatedBlocksForCurrentPage) {
-        // Загружаем все блоки сессии
-        const res = await fetch(`http://localhost:8000/blocks/${sessionId}`);
-        const data = await res.json();
-        let allBlocks = data.blocks.filter(b => b.page_number !== currentPage);
-        allBlocks.push(...updatedBlocksForCurrentPage);
-        const updateRes = await fetch(`http://localhost:8000/blocks/${sessionId}`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ blocks: allBlocks })
+    async function blockAction(action, blockId, data = {}) {
+        const res = await fetch(`http://localhost:8000/blocks/${sessionId}/action`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, block_id: blockId, data })
         });
-        if (!updateRes.ok) throw new Error('Update failed');
-        blocks = updatedBlocksForCurrentPage;
-        return true;
+        if (!res.ok) throw new Error(`Action failed: ${action}`);
+        const result = await res.json();
+        blocks = (await fetchBlocks(currentPage));
+        return result;
     }
 
     async function translateDocument() {
-        if (!sessionId) { alert('Сначала загрузите PDF'); return; }
+        updateStatus('Переводим документ...');
         translateBtn.disabled = true;
-        translateBtn.innerText = 'Переводим...';
         try {
-            const res = await fetch(`http://localhost:8000/translate/${sessionId}?src_lang=en&tgt_lang=ru`, { method: 'POST' });
+            const res = await fetch(
+                `http://localhost:8000/translate/${sessionId}?src_lang=${srcLangSelect.value}&tgt_lang=${tgtLangSelect.value}`,
+                { method: 'POST' }
+            );
             if (!res.ok) throw new Error('Translation failed');
+            blocks = await fetchBlocks(currentPage);
             await renderPage(currentPage);
-            alert('Перевод выполнен');
-        } catch (err) { alert('Ошибка перевода: ' + err.message); }
-        finally { translateBtn.disabled = false; translateBtn.innerText = '🌐 Перевести документ'; }
+            showNotification('✅ Перевод выполнен');
+            updateStatus('Готово');
+        } catch (err) {
+            showNotification('❌ Ошибка перевода: ' + err.message, true);
+            updateStatus('Ошибка');
+        } finally {
+            translateBtn.disabled = false;
+        }
     }
 
-    async function generatePDF() {
-        const res = await fetch(`http://localhost:8000/generate/${sessionId}`, { method: 'POST' });
-        const data = await res.json();
-        window.open(`http://localhost:8000${data.download_url}`, '_blank');
+    async function undoAction() {
+        updateStatus('Отмена...');
+        try {
+            const res = await fetch(`http://localhost:8000/undo/${sessionId}`, { method: 'POST' });
+            if (!res.ok) throw new Error('Undo failed');
+            const data = await res.json();
+            blocks = await fetchBlocks(currentPage);
+            await renderPage(currentPage);
+            updateUndoRedoButtons(data.history_info);
+            updateStatus('Готово');
+        } catch (err) {
+            showNotification('❌ Ошибка отмены', true);
+        }
     }
 
-    async function saveToJSON() {
-        const res = await fetch(`http://localhost:8000/blocks/${sessionId}`);
-        const data = await res.json();
-        const blob = new Blob([JSON.stringify(data.blocks, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `pdf_blocks_${sessionId}.json`; a.click();
-        URL.revokeObjectURL(url);
+    async function redoAction() {
+        updateStatus('Повтор...');
+        try {
+            const res = await fetch(`http://localhost:8000/redo/${sessionId}`, { method: 'POST' });
+            if (!res.ok) throw new Error('Redo failed');
+            const data = await res.json();
+            blocks = await fetchBlocks(currentPage);
+            await renderPage(currentPage);
+            updateUndoRedoButtons(data.history_info);
+            updateStatus('Готово');
+        } catch (err) {
+            showNotification('❌ Ошибка повтора', true);
+        }
     }
 
+    async function fetchHistoryInfo() {
+        const res = await fetch(`http://localhost:8000/history/${sessionId}`);
+        if (!res.ok) throw new Error('History fetch failed');
+        return await res.json();
+    }
+
+    function updateUndoRedoButtons(historyInfo) {
+        undoBtn.disabled = !historyInfo.can_undo;
+        redoBtn.disabled = !historyInfo.can_redo;
+    }
+
+    // ==================== РЕНДЕРИНГ PDF ====================
     async function renderPage(pageNum) {
         if (!pdfDoc) return;
+        updateStatus('Загрузка страницы...');
+        
         const page = await pdfDoc.getPage(pageNum);
         const viewport = page.getViewport({ scale });
-        pdfCanvas.width = viewport.width; pdfCanvas.height = viewport.height;
-        fabricCanvasEl.width = viewport.width; fabricCanvasEl.height = viewport.height;
-        fabricCanvas?.setWidth(viewport.width); fabricCanvas?.setHeight(viewport.height);
+        pdfCanvas.width = viewport.width;
+        pdfCanvas.height = viewport.height;
+        fabricCanvasEl.width = viewport.width;
+        fabricCanvasEl.height = viewport.height;
+        
+        if (fabricCanvas) {
+            fabricCanvas.setWidth(viewport.width);
+            fabricCanvas.setHeight(viewport.height);
+        }
+        
         const ctx = pdfCanvas.getContext('2d');
         await page.render({ canvasContext: ctx, viewport }).promise;
+        
         blocks = await fetchBlocks(pageNum);
         renderBlocksOnCanvas();
+        updateBlocksList();
+        updateStatus('Готово');
     }
 
     function getDisplayText(block) {
@@ -159,190 +502,345 @@
     function renderBlocksOnCanvas() {
         if (!fabricCanvas) return;
         fabricCanvas.clear();
-        for (let b of blocks) {
-            if (b.type === 'table' && b.table_data) {
-                // Таблица: ячейки
-                for (let row of b.table_data.cells) {
-                    for (let cell of row) {
-                        const rect = new fabric.Rect({
-                            left: cell.bbox.x0, top: cell.bbox.y0,
-                            width: cell.bbox.x1 - cell.bbox.x0, height: cell.bbox.y1 - cell.bbox.y0,
-                            fill: 'rgba(59,130,246,0.15)', stroke: '#3b82f6', strokeWidth: 1,
-                            hasControls: true, hasBorders: true, lockRotation: true,
-                            cornerColor: '#3b82f6', cornerSize: 8
-                        });
-                        const text = new fabric.Textbox(cell.text || '', {
-                            left: cell.bbox.x0 + 2, top: cell.bbox.y0 + 2,
-                            width: (cell.bbox.x1 - cell.bbox.x0) - 4,
-                            fontSize: 10, fontFamily: 'Arial', fill: '#000000',
-                            editable: true, hasControls: false, backgroundColor: 'rgba(255,255,200,0.7)'
-                        });
-                        const group = new fabric.Group([rect, text], {
-                            left: cell.bbox.x0, top: cell.bbox.y0,
-                            originX: 'left', originY: 'top',
-                            subTargetCheck: true,
-                            data: { type: 'table_cell', originalCell: cell, parentBlock: b }
-                        });
-                        fabricCanvas.add(group);
-                    }
-                }
-                // Границы таблицы
-                if (b.table_data.cell_borders) {
-                    for (let border of b.table_data.cell_borders) {
-                        if (border.type === 'rect') {
-                            fabricCanvas.add(new fabric.Rect({
-                                left: border.x0, top: border.y0,
-                                width: border.x1 - border.x0, height: border.y1 - border.y0,
-                                fill: 'rgba(0,0,0,0)', stroke: 'red', strokeWidth: 1,
-                                selectable: false, evented: false
-                            }));
-                        } else if (border.type === 'line') {
-                            fabricCanvas.add(new fabric.Line([border.x0, border.y0, border.x1, border.y1], {
-                                stroke: 'red', strokeWidth: 1, selectable: false, evented: false
-                            }));
-                        }
-                    }
-                }
+        
+        for (let block of blocks) {
+            if (block.type === 'table' && block.table_data) {
+                // Таблица
+                renderTableBlock(block);
             } else {
-                // Обычный текстовый блок: прямоугольник + редактируемый текст (НЕ группа)
-                const rect = new fabric.Rect({
-                    left: b.bbox.x0, top: b.bbox.y0,
-                    width: b.bbox.x1 - b.bbox.x0, height: b.bbox.y1 - b.bbox.y0,
-                    fill: 'rgba(59,130,246,0.15)', stroke: '#3b82f6', strokeWidth: 1,
-                    hasControls: true, hasBorders: true, lockRotation: true,
-                    cornerColor: '#3b82f6', cornerSize: 8,
-                    selectable: true, evented: true,
-                    data: { type: 'rect', originalBlock: b }
-                });
-                const text = new fabric.Textbox(getDisplayText(b), {
-                    left: b.bbox.x0 + 5, top: b.bbox.y0 + 5,
-                    width: (b.bbox.x1 - b.bbox.x0) - 10,
-                    fontSize: b.font_size || 12, fontFamily: 'Arial', fill: '#000000',
-                    editable: true, hasControls: false, backgroundColor: 'rgba(255,255,200,0.7)',
-                    data: { type: 'text', originalBlock: b, mode: editMode }
-                });
-                fabricCanvas.add(rect);
-                fabricCanvas.add(text);
-                // Синхронизация перемещения: при перемещении прямоугольника двигаем текст, и наоборот
-                rect.on('moving', (e) => {
-                    text.set({ left: rect.left + 5, top: rect.top + 5 });
-                    fabricCanvas.renderAll();
-                });
-                text.on('moving', (e) => {
-                    rect.set({ left: text.left - 5, top: text.top - 5 });
-                    fabricCanvas.renderAll();
-                });
-                // При изменении размера прямоугольника подстраиваем текст
-                rect.on('scaling', (e) => {
-                    const newWidth = rect.width * rect.scaleX;
-                    const newHeight = rect.height * rect.scaleY;
-                    text.set({ width: newWidth - 10, left: rect.left + 5, top: rect.top + 5 });
-                    rect.set({ scaleX: 1, scaleY: 1, width: newWidth, height: newHeight });
-                    fabricCanvas.renderAll();
-                });
+                // Текстовый блок
+                renderTextBlock(block);
             }
         }
+        
         fabricCanvas.renderAll();
     }
 
-    async function onCanvasModified() {
-        // Собираем обновлённые блоки для обычного текста (прямоугольник + текст)
-        const updatedBlocks = [];
-        const objects = fabricCanvas.getObjects();
-        const textMap = new Map(); // text object -> block index
-        // Сначала определим все текстовые и прямоугольные объекты
-        for (let obj of objects) {
-            if (obj.type === 'textbox' && obj.data && obj.data.type === 'text') {
-                const orig = obj.data.originalBlock;
-                if (!orig) continue;
-                // Ищем соответствующий прямоугольник
-                const rectObj = objects.find(o => o.data && o.data.type === 'rect' && o.data.originalBlock === orig);
-                if (!rectObj) continue;
-                const newX0 = rectObj.left;
-                const newY0 = rectObj.top;
-                const newWidth = rectObj.width;
-                const newHeight = rectObj.height;
-                const updated = { ...orig };
-                updated.bbox.x0 = newX0;
-                updated.bbox.y0 = newY0;
-                updated.bbox.x1 = newX0 + newWidth;
-                updated.bbox.y1 = newY0 + newHeight;
-                if (editMode === 'translated') {
-                    updated.text = obj.text;
-                } else {
-                    updated.original_text = obj.text;
+    function renderTextBlock(block) {
+        const rect = new fabric.Rect({
+            left: block.bbox.x0,
+            top: block.bbox.y0,
+            width: block.bbox.x1 - block.bbox.x0,
+            height: block.bbox.y1 - block.bbox.y0,
+            fill: selectedBlock?.id === block.id ? 'rgba(102,126,234,0.25)' : 'rgba(59,130,246,0.15)',
+            stroke: selectedBlock?.id === block.id ? '#667eea' : '#3b82f6',
+            strokeWidth: 2,
+            hasControls: true,
+            hasBorders: true,
+            lockRotation: true,
+            cornerColor: '#667eea',
+            cornerSize: 8,
+            data: { type: 'rect', blockId: block.id }
+        });
+
+        const text = new fabric.Textbox(getDisplayText(block), {
+            left: block.bbox.x0 + 5,
+            top: block.bbox.y0 + 5,
+            width: (block.bbox.x1 - block.bbox.x0) - 10,
+            fontSize: block.font_size || 12,
+            fontFamily: 'Arial',
+            fill: '#000000',
+            editable: true,
+            hasControls: false,
+            backgroundColor: 'rgba(255,255,200,0.7)',
+            data: { type: 'text', blockId: block.id }
+        });
+
+        fabricCanvas.add(rect);
+        fabricCanvas.add(text);
+
+        // События
+        rect.on('moving', () => {
+            text.set({ left: rect.left + 5, top: rect.top + 5 });
+            fabricCanvas.renderAll();
+        });
+
+        text.on('moving', () => {
+            rect.set({ left: text.left - 5, top: text.top - 5 });
+            fabricCanvas.renderAll();
+        });
+
+        rect.on('scaling', () => {
+            const newWidth = rect.width * rect.scaleX;
+            const newHeight = rect.height * rect.scaleY;
+            text.set({ width: newWidth - 10 });
+            rect.set({ scaleX: 1, scaleY: 1, width: newWidth, height: newHeight });
+            fabricCanvas.renderAll();
+        });
+
+        rect.on('selected', () => {
+            selectedBlock = block;
+            updateSelectionInfo();
+            renderBlocksOnCanvas();
+            updatePropertiesPanel();
+        });
+
+        text.on('selected', () => {
+            selectedBlock = block;
+            updateSelectionInfo();
+            renderBlocksOnCanvas();
+            updatePropertiesPanel();
+        });
+    }
+
+    function renderTableBlock(block) {
+        const rect = new fabric.Rect({
+            left: block.bbox.x0,
+            top: block.bbox.y0,
+            width: block.bbox.x1 - block.bbox.x0,
+            height: block.bbox.y1 - block.bbox.y0,
+            fill: selectedBlock?.id === block.id ? 'rgba(102,126,234,0.2)' : 'rgba(59,130,246,0.1)',
+            stroke: selectedBlock?.id === block.id ? '#667eea' : '#8b5cf6',
+            strokeWidth: 2,
+            strokeDasharray: [5, 5],
+            hasControls: true,
+            hasBorders: true,
+            data: { type: 'rect', blockId: block.id, isTable: true }
+        });
+
+        fabricCanvas.add(rect);
+
+        // Отрисовка ячеек
+        if (block.table_data?.cells) {
+            for (let rowIdx = 0; rowIdx < block.table_data.cells.length; rowIdx++) {
+                for (let colIdx = 0; colIdx < block.table_data.cells[rowIdx].length; colIdx++) {
+                    const cell = block.table_data.cells[rowIdx][colIdx];
+                    const cellText = new fabric.Textbox(cell.text || '', {
+                        left: cell.bbox.x0 + 2,
+                        top: cell.bbox.y0 + 2,
+                        width: (cell.bbox.x1 - cell.bbox.x0) - 4,
+                        fontSize: 9,
+                        fontFamily: 'Arial',
+                        fill: '#000000',
+                        editable: true,
+                        backgroundColor: 'rgba(255,255,255,0.9)',
+                        data: { type: 'table_cell', blockId: block.id, row: rowIdx, col: colIdx }
+                    });
+                    fabricCanvas.add(cellText);
+
+                    cellText.on('changed', () => {
+                        updateTableCell(block.id, rowIdx, colIdx, cellText.text);
+                    });
                 }
-                updated.font_size = obj.fontSize;
-                updatedBlocks.push(updated);
-            } else if (obj.type === 'group' && obj.data && obj.data.type === 'table_cell') {
-                // Таблицы обрабатываем отдельно
-                const cell = obj.data.originalCell;
-                const parent = obj.data.parentBlock;
-                const rect = obj.item(0);
-                const text = obj.item(1);
-                const newX0 = obj.left;
-                const newY0 = obj.top;
-                const newWidth = rect.width;
-                const newHeight = rect.height;
-                const updatedCell = { ...cell };
-                updatedCell.bbox.x0 = newX0;
-                updatedCell.bbox.y0 = newY0;
-                updatedCell.bbox.x1 = newX0 + newWidth;
-                updatedCell.bbox.y1 = newY0 + newHeight;
-                updatedCell.text = text.text;
-                // Обновляем ячейки в родительском блоке
-                const updatedParent = { ...parent };
-                const newCells = parent.table_data.cells.map(row =>
-                    row.map(c => (c === cell) ? updatedCell : c)
-                );
-                updatedParent.table_data = { ...parent.table_data, cells: newCells };
-                updatedBlocks.push(updatedParent);
             }
         }
-        // Дедупликация (убираем дубликаты таблиц)
-        const unique = [];
-        const ids = new Set();
-        for (let b of updatedBlocks) {
-            const id = b.bbox.x0 + b.bbox.y0 + b.page_number + (b.type || '');
-            if (!ids.has(id)) {
-                ids.add(id);
-                unique.push(b);
+
+        rect.on('selected', () => {
+            selectedBlock = block;
+            updateSelectionInfo();
+            renderBlocksOnCanvas();
+            updatePropertiesPanel();
+        });
+    }
+
+    function updateTableCell(blockId, row, col, text) {
+        blockAction('update_table_cell', blockId, { row, col, text })
+            .catch(err => showNotification('❌ ' + err.message, true));
+    }
+
+    function updatePropertiesPanel() {
+        const content = document.getElementById('propertiesContent');
+        
+        if (!selectedBlock) {
+            content.innerHTML = '<p class="text-gray-500 text-center">Выберите блок для редактирования</p>';
+            return;
+        }
+
+        let html = `
+            <div class="property-row">
+                <label class="property-label">ID</label>
+                <input type="text" class="property-input" value="${selectedBlock.id}" disabled>
+            </div>
+            <div class="property-row">
+                <label class="property-label">Тип</label>
+                <select class="property-input" id="propType">
+                    <option value="paragraph" ${selectedBlock.type === 'paragraph' ? 'selected' : ''}>Параграф</option>
+                    <option value="heading" ${selectedBlock.type === 'heading' ? 'selected' : ''}>Заголовок</option>
+                    <option value="list" ${selectedBlock.type === 'list' ? 'selected' : ''}>Список</option>
+                </select>
+            </div>
+            <div class="property-row">
+                <label class="property-label">Страница</label>
+                <input type="number" class="property-input" id="propPage" value="${selectedBlock.page_number}" min="1" max="${totalPages}">
+            </div>
+            <div class="property-row">
+                <label class="property-label">X0</label>
+                <input type="number" class="property-input" id="propX0" value="${Math.round(selectedBlock.bbox.x0)}" step="1">
+            </div>
+            <div class="property-row">
+                <label class="property-label">Y0</label>
+                <input type="number" class="property-input" id="propY0" value="${Math.round(selectedBlock.bbox.y0)}" step="1">
+            </div>
+            <div class="property-row">
+                <label class="property-label">X1</label>
+                <input type="number" class="property-input" id="propX1" value="${Math.round(selectedBlock.bbox.x1)}" step="1">
+            </div>
+            <div class="property-row">
+                <label class="property-label">Y1</label>
+                <input type="number" class="property-input" id="propY1" value="${Math.round(selectedBlock.bbox.y1)}" step="1">
+            </div>
+        `;
+
+        if (selectedBlock.type !== 'table') {
+            html += `
+                <div class="property-row">
+                    <label class="property-label">Текст (${editMode})</label>
+                    <textarea class="property-input" id="propText" style="min-height: 80px; resize: vertical;">${getDisplayText(selectedBlock)}</textarea>
+                </div>
+                <div class="property-row">
+                    <button id="propSaveText" class="btn w-full px-3 py-2 bg-blue-600 text-white hover:bg-blue-700">
+                        💾 Сохранить
+                    </button>
+                </div>
+            `;
+        }
+
+        html += `
+            <div class="property-row flex gap-2">
+                <button id="propDelete" class="btn flex-1 px-3 py-2 bg-red-600 text-white hover:bg-red-700 text-sm">
+                    🗑️ Удалить
+                </button>
+                <button id="propDuplicate" class="btn flex-1 px-3 py-2 bg-orange-600 text-white hover:bg-orange-700 text-sm">
+                    📋 Копия
+                </button>
+            </div>
+        `;
+
+        content.innerHTML = html;
+
+        // Обработчики
+        document.getElementById('propSaveText')?.addEventListener('click', () => {
+            const newText = document.getElementById('propText').value;
+            blockAction('update_text', selectedBlock.id, { text: newText, is_translation: editMode === 'translated' })
+                .then(() => {
+                    showNotification('✅ Текст обновлён');
+                    selectedBlock.text = newText;
+                    renderBlocksOnCanvas();
+                })
+                .catch(err => showNotification('❌ ' + err.message, true));
+        });
+
+        document.getElementById('propDelete')?.addEventListener('click', () => {
+            if (confirm('Удалить этот блок?')) {
+                blockAction('delete', selectedBlock.id)
+                    .then(() => {
+                        showNotification('✅ Блок удалён');
+                        selectedBlock = null;
+                        renderBlocksOnCanvas();
+                        updateBlocksList();
+                    })
+                    .catch(err => showNotification('❌ ' + err.message, true));
             }
-        }
-        if (unique.length) {
-            try {
-                await updateBlocksOnServer(unique);
-                renderBlocksOnCanvas(); // перерисовываем для синхронизации
-            } catch (err) { console.error(err); alert('Ошибка сохранения'); }
-        }
+        });
+
+        document.getElementById('propDuplicate')?.addEventListener('click', () => {
+            blockAction('duplicate', selectedBlock.id)
+                .then(result => {
+                    showNotification('✅ Блок скопирован');
+                    blocks = blocks;
+                    renderBlocksOnCanvas();
+                    updateBlocksList();
+                })
+                .catch(err => showNotification('❌ ' + err.message, true));
+        });
     }
 
-    function initFabric() {
-        if (fabricCanvas) fabricCanvas.dispose();
-        fabricCanvas = new fabric.Canvas(fabricCanvasEl, { selection: true, preserveObjectStacking: true });
-        fabricCanvas.on('object:modified', onCanvasModified);
-        fabricCanvas.on('text:changed', onCanvasModified);
+    function updateBlocksList() {
+        const content = document.getElementById('blocksListContent');
+        if (!blocks.length) {
+            content.innerHTML = '<p class="text-gray-500 p-3">Блоков не найдено</p>';
+            return;
+        }
+
+        let html = '';
+        for (let block of blocks) {
+            const isSelected = selectedBlock?.id === block.id;
+            html += `
+                <div class="block-item ${isSelected ? 'selected' : ''}" data-block-id="${block.id}">
+                    <div class="block-item-type">${block.type}</div>
+                    <div class="block-item-text">${getDisplayText(block).substring(0, 50)}</div>
+                </div>
+            `;
+        }
+        content.innerHTML = html;
+
+        // Обработчики
+        content.querySelectorAll('.block-item').forEach(el => {
+            el.addEventListener('click', () => {
+                const blockId = el.getAttribute('data-block-id');
+                selectedBlock = blocks.find(b => b.id === blockId);
+                updateSelectionInfo();
+                renderBlocksOnCanvas();
+                updatePropertiesPanel();
+            });
+        });
     }
 
+    // ==================== ОСНОВНЫЕ СОБЫТИЯ ====================
     async function loadPDF(file) {
         try {
+            updateStatus('Загружаем PDF...');
             await uploadPDF(file);
             const arrayBuffer = await file.arrayBuffer();
             pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
             totalPages = pdfDoc.numPages;
             pageCountSpan.innerText = `/ ${totalPages}`;
-            currentPage = 1; pageNumSpan.innerText = currentPage;
-            initFabric();
+            currentPage = 1;
+            pageNumSpan.innerText = currentPage;
+            
+            if (!fabricCanvas) {
+                fabricCanvas = new fabric.Canvas(fabricCanvasEl, { 
+                    selection: true, 
+                    preserveObjectStacking: true,
+                    backgroundColor: 'transparent'
+                });
+            }
+            
             await renderPage(currentPage);
-        } catch (err) { alert('Ошибка загрузки: ' + err.message); }
+            showNotification('✅ PDF загружен');
+            updateStatus('Готово');
+        } catch (err) {
+            showNotification('❌ Ошибка: ' + err.message, true);
+            updateStatus('Ошибка');
+        }
     }
 
     function toggleEditMode() {
         editMode = editMode === 'translated' ? 'original' : 'translated';
-        modeToggleBtn.innerText = editMode === 'translated' ? '✏️ Режим: Перевод' : '✏️ Режим: Оригинал';
+        modeToggleBtn.innerText = editMode === 'translated' ? 'Перевод' : 'Оригинал';
         renderBlocksOnCanvas();
     }
 
+    async function generatePDF() {
+        updateStatus('Генерируем PDF...');
+        generatePdfBtn.disabled = true;
+        try {
+            const res = await fetch(`http://localhost:8000/generate/${sessionId}`, { method: 'POST' });
+            const data = await res.json();
+            window.open(`http://localhost:8000${data.download_url}`, '_blank');
+            showNotification('✅ PDF готов');
+            updateStatus('Готово');
+        } catch (err) {
+            showNotification('❌ ' + err.message, true);
+        } finally {
+            generatePdfBtn.disabled = false;
+        }
+    }
+
+    async function saveToJSON() {
+        const res = await fetch(`http://localhost:8000/blocks/${sessionId}`);
+        const data = await res.json();
+        const blob = new Blob([JSON.stringify(data.blocks, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pdf_blocks_${sessionId}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showNotification('✅ JSON экспортирован');
+    }
+
+    // ==================== ИНИЦИАЛИЗАЦИЯ ====================
     fileInput.addEventListener('change', e => e.target.files.length && loadPDF(e.target.files[0]));
     prevBtn.addEventListener('click', async () => { if (currentPage > 1) { currentPage--; pageNumSpan.innerText = currentPage; await renderPage(currentPage); } });
     nextBtn.addEventListener('click', async () => { if (currentPage < totalPages) { currentPage++; pageNumSpan.innerText = currentPage; await renderPage(currentPage); } });
@@ -351,6 +849,15 @@
     modeToggleBtn.addEventListener('click', toggleEditMode);
     saveJsonBtn.addEventListener('click', saveToJSON);
     generatePdfBtn.addEventListener('click', generatePDF);
+    undoBtn.addEventListener('click', undoAction);
+    redoBtn.addEventListener('click', redoAction);
+    historyBtn.addEventListener('click', async () => {
+        const info = await fetchHistoryInfo();
+        console.log('История:', info);
+        showNotification(`История: ${info.total_states} состояний`);
+    });
+    toggleBlocksListBtn.addEventListener('click', () => blocksList.classList.toggle('hidden'));
+    togglePropertiesBtn.addEventListener('click', () => propertiesPanel.classList.toggle('hidden'));
 </script>
 </body>
 </html>

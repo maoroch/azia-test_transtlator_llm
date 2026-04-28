@@ -106,30 +106,66 @@ class TranslationService:
         if tasks:
             responses = await asyncio.gather(*tasks)
             for resp, (chunk, page_num, start) in zip(responses, task_info):
-                parts = resp.split("\n---\n")
+                parts = TranslationService._split_response(resp, len(chunk))
                 if len(parts) != len(chunk):
-                    logger.warning(f"Page {page_num}: expected {len(chunk)} parts, got {len(parts)}. Using fallback.")
-                    parts = [resp] * len(chunk)
+                    logger.warning(f"Page {page_num}: expected {len(chunk)} parts, got {len(parts)}.")
+                    parts = (parts + [""] * len(chunk))[:len(chunk)]
                 for (orig_idx, blk), trans in zip(chunk, parts):
-                    trans = re.sub(r'\s+', ' ', trans)
-                    trans = trans.replace("\u00ad", "").replace("­", "")
+                    trans = TranslationService._clean_translation(trans)
                     results[orig_idx] = trans
                     self.cache.set(blk.text, src_lang, tgt_lang, glossary, trans)
         return results
 
+    @staticmethod
+    def _split_response(response: str, expected: int) -> list:
+        import re as _re
+        normalized = _re.sub(r"(?m)^\s*[-–—]{2,}\s*$", "---", response)
+        parts = [p.strip() for p in normalized.split("\n---\n")]
+        if len(parts) != expected:
+            parts2 = [p.strip() for p in _re.split(r"\n?---\n?", normalized)]
+            if abs(len(parts2) - expected) < abs(len(parts) - expected):
+                parts = parts2
+        return [p for p in parts if p] or [response]
+
+    @staticmethod
+    def _clean_translation(text: str) -> str:
+        import re as _re
+        text = text.replace("\u00ad", "").replace("\xad", "")
+        text = _re.sub(r"(?<![\w])-{3,}(?![\w])", "", text)
+        text = _re.sub(r"[ \t]+", " ", text)
+        text = _re.sub(r"\n+", " ", text)
+        return text.strip()
+
     def _build_prompt(self, current_text: str, src_lang: str, tgt_lang: str,
                       glossary: Optional[Dict[str, str]]) -> str:
+        lang_names = {
+            "en": "English", "ru": "Russian", "kk": "Kazakh",
+            "de": "German", "fr": "French", "es": "Spanish",
+        }
+        src_name = lang_names.get(src_lang, src_lang)
+        tgt_name = lang_names.get(tgt_lang, tgt_lang)
         gloss = ""
         if glossary:
-            gloss = "\n".join([f"'{k}' -> '{v}'" for k, v in glossary.items()]) + "\n\n"
-        return f"""{gloss}Translate the following text(s) from {src_lang} to {tgt_lang}.
-Each text block is separated by '---'. Preserve the separators in output. Return only the translation(s).
-
-Text(s) to translate:
-{current_text}"""
+            gloss = "Use this terminology glossary:\n"
+            gloss += "\n".join(f"  {k} -> {v}" for k, v in glossary.items())
+            gloss += "\n\n"
+        return (
+            f"You are a professional technical translator. "
+            f"Translate each text block from {src_name} to {tgt_name}.\n\n"
+            f"{gloss}"
+            "STRICT RULES:\n"
+            "1. Each input block is delimited by the separator line containing only \"---\".\n"
+            "2. Output EXACTLY the same number of blocks in the same order, each separated by exactly \"---\" on its own line.\n"
+            "3. Do NOT add, remove, or merge blocks. Do NOT add commentary, notes, or explanations.\n"
+            "4. Preserve all product names, model numbers, part numbers, brand names, and technical codes EXACTLY as written (e.g. testo 103, 1.4571, V4A, Reg. EU 1935/2004).\n"
+            "5. Preserve punctuation structure. Do NOT add hyphens or dashes inside the translated text.\n"
+            "6. Output ONLY the translated blocks separated by \"---\". Nothing else.\n\n"
+            f"Input blocks:\n{current_text}"
+        )
 
     async def translate_blocks_async(self, blocks: List, src_lang: str, tgt_lang: str,
-                                     glossary: Optional[Dict[str, str]] = None,
-                                     batch_size: int = 20) -> List[str]:
+                                 glossary: Optional[Dict[str, str]] = None,
+                                 batch_size: int = 20) -> List[str]:
+
         """Асинхронная версия translate_blocks для использования в FastAPI."""
         return await self._translate_by_pages_async(blocks, src_lang, tgt_lang, glossary, max_blocks_per_req=batch_size)
